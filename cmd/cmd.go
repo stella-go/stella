@@ -27,6 +27,7 @@ import (
 	"github.com/stella-go/stella/generator/model"
 	"github.com/stella-go/stella/generator/parser"
 	"github.com/stella-go/stella/gofmt"
+	"github.com/stella-go/stella/line"
 )
 
 func Generate() {
@@ -133,11 +134,10 @@ func writeFileTryFormat(output string, filename string, content string) {
 }
 
 func Create() {
-	// language string, mode string, name string, output string
 	flageSet := flag.NewFlagSet("stella create", flag.ExitOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `stella An efficient development tool
-
+		fmt.Fprintf(os.Stderr, `
+stella An efficient development tool
 Usage: 
 	stella create -n my-project
 `)
@@ -181,6 +181,43 @@ func createProj(language string, stype string, name string, output string) {
 	err = proj.Create(language, stype, name, output)
 	if err != nil {
 		printError("create project error", err)
+	}
+}
+
+func Line() {
+	flageSet := flag.NewFlagSet("stella line", flag.ContinueOnError)
+	flageSet.Usage = func() {
+		fmt.Fprintf(os.Stderr, `
+stella An efficient development tool
+Usage: 
+	stella line [path/to [path/to ...]]
+
+	stella line, By default it is equivalent to "stella line ."
+`)
+	}
+
+	h := flageSet.Bool("h", false, "print help info")
+	flageSet.Parse(os.Args[2:])
+	if *h {
+		flageSet.Usage()
+		return
+	}
+	args := flageSet.Args()
+	roots := make([]string, 0)
+	if len(args) < 1 {
+		roots = append(roots, ".")
+	} else {
+		roots = append(roots, args...)
+	}
+	fillLine(roots)
+}
+
+func fillLine(roots []string) {
+	for _, root := range roots {
+		err := line.Fill(root)
+		if err != nil {
+			printError("fill line error", err)
+		}
 	}
 }
 

@@ -33,19 +33,22 @@ func main() {
 		cmd.Generate()
 	case "create":
 		cmd.Create()
+	case "line":
+		cmd.Line()
 	default:
 		usage()
 	}
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `stella An efficient development tool
-
+	fmt.Fprintf(os.Stderr, `
+stella An efficient development tool
 Usage: 
 
 	sub-commands:
 		generate	Generate template code.
 		create		Create template project.
+		line		Fill __LINE__ symbol.
 
 	stella <command> -h for more info.
 `)
