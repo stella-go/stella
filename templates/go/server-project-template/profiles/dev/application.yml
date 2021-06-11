@@ -1,0 +1,9 @@
+application: {{ project-name }}
+
+server.port: 8080
+
+logger:
+  level: DEBUG
+  path: ./logs
+
+version: 1.0.0

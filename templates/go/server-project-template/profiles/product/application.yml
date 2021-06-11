@@ -1,0 +1,8 @@
+application: {{ project-name }}
+
+server.port: 8080
+
+logger:
+  level: INFO
+
+version: 1.0.0
