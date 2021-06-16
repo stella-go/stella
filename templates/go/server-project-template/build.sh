@@ -95,11 +95,13 @@ if [ -z "$GO" ];then
   echo "ERROR: Not Found \`go\` command defined in system."
   exit 1
 fi
+if ! $GO generate ; then
+    echo "Build Generate failed."
+fi
 if ! $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi
-
 chmod -R a+x "${ASSEMBLY}"/bin
 echo "Building zip..."
 cd "${TARGET}" || exit

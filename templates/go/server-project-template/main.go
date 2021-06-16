@@ -1,3 +1,4 @@
+//go:generate stella line
 package main
 
 import (
