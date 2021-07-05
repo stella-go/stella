@@ -50,37 +50,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generateModel(*p, *i, *o)
-	generateCURD(*p, *i, *o)
-}
-
-func generateModel(pkg string, input string, output string) {
-	filename := pkg + ".go"
-	sql := readFileWithStdin(input)
-	statements := parser.Parse(sql)
-	content := model.Generate(pkg, statements)
-	writeFileTryFormat(output, filename, content)
-
-}
-
-func isExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-func generateCURD(pkg string, input string, output string) {
-	filename := pkg + "_curd.go"
-	sql := readFileWithStdin(input)
-	statements := parser.Parse(sql)
-	content := curd.Generate(pkg, statements)
-	writeFileTryFormat(output, filename, content)
-
+	generate(*p, *i, *o)
 }
 
 func readFileWithStdin(input string) string {
@@ -88,7 +58,11 @@ func readFileWithStdin(input string) string {
 	if input == "" {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			sql += scanner.Text()
+			text := scanner.Text()
+			if text == "EOF" {
+				break
+			}
+			sql += text
 		}
 	} else {
 		sqlBytes, err := ioutil.ReadFile(input)
@@ -99,6 +73,46 @@ func readFileWithStdin(input string) string {
 		sql = string(sqlBytes)
 	}
 	return sql
+}
+
+func generate(pkg string, input string, output string) {
+	filename := pkg + ".go"
+	sql := readFileWithStdin(input)
+
+	statements := parser.Parse(sql)
+	content := model.Generate(pkg, statements)
+	writeFileTryFormat(output, filename, content)
+
+	filename = pkg + "_curd.go"
+	content = curd.Generate(pkg, statements)
+	writeFileTryFormat(output, filename, content)
+}
+
+// func generateModel(pkg string, input string, output string) {
+// 	filename := pkg + ".go"
+// 	sql := readFileWithStdin(input)
+// 	statements := parser.Parse(sql)
+// 	content := model.Generate(pkg, statements)
+// 	writeFileTryFormat(output, filename, content)
+// }
+
+// func generateCURD(pkg string, input string, output string) {
+// 	filename := pkg + "_curd.go"
+// 	sql := readFileWithStdin(input)
+// 	statements := parser.Parse(sql)
+// 	content := curd.Generate(pkg, statements)
+// 	writeFileTryFormat(output, filename, content)
+// }
+
+func isExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 func writeFileTryFormat(output string, filename string, content string) {
