@@ -36,8 +36,8 @@ func Generate() {
 		fmt.Fprintf(os.Stderr, `stella An efficient development tool
 
 Usage: 
+	stella generate -p model -i init.sql -o model
 
-	stella generate -p model -i init.ddl -o model
 `)
 		flageSet.PrintDefaults()
 	}
@@ -150,10 +150,10 @@ func writeFileTryFormat(output string, filename string, content string) {
 func Create() {
 	flageSet := flag.NewFlagSet("stella create", flag.ExitOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `
-stella An efficient development tool
+		fmt.Fprintf(os.Stderr, `stella An efficient development tool
 Usage: 
 	stella create -n my-project
+
 `)
 		flageSet.PrintDefaults()
 	}
@@ -201,8 +201,7 @@ func createProj(language string, stype string, name string, output string) {
 func Line() {
 	flageSet := flag.NewFlagSet("stella line", flag.ContinueOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `
-stella An efficient development tool
+		fmt.Fprintf(os.Stderr, `stella An efficient development tool
 Usage: 
 	stella line [path/to [path/to ...]]
 

@@ -44,7 +44,6 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `
 stella An efficient development tool
 Usage: 
-
 	sub-commands:
 		generate	Generate template code.
 		create		Create template project.
