@@ -167,7 +167,8 @@ func DeleteTbStudents(db *sql.DB, s *TbStudents) error {
 
 ### Create
 Create a template project.
-***NOTICE*: The java and node templates have not yet been implemented, And go only have a server template.
+
+**NOTICE**: The java and node templates have not yet been implemented, And go only have a server template.
 
 ```bash
 Usage: 
