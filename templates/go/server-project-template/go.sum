@@ -66,8 +66,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stella-go/logger v1.0.2 h1:m5uzntH49MQ3Q4f86y9BmrGsG0/x+ITUNcu7rR9wjWc=
 github.com/stella-go/logger v1.0.2/go.mod h1:dpXD/j8QXXS75uoLhZfKfXFTNbWBlJ/14jUgrFZ32hs=
-github.com/stella-go/siu v1.0.0 h1:LAgmQ5ACUMgs3dFUfzL5ApqOu+icpA3oIyrVnKra4oo=
-github.com/stella-go/siu v1.0.0/go.mod h1:0BwpFcH+HsdiGAMc8gZy6UogH37QFLGKIMKeTJP2iKY=
+github.com/stella-go/siu v1.0.1 h1:79gq7PGM3FjmsT1abU6dbqVwpwoLhuF4mIgvp2Ii++k=
+github.com/stella-go/siu v1.0.1/go.mod h1:0BwpFcH+HsdiGAMc8gZy6UogH37QFLGKIMKeTJP2iKY=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=

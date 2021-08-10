@@ -4,5 +4,7 @@ server.port: 8080
 
 logger:
   level: INFO
+  path: ./logs
+  file: log.txt
 
 version: 1.0.0

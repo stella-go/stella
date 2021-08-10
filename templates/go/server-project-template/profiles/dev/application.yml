@@ -1,9 +1,39 @@
 application: {{ project-name }}
 
-server.port: 8080
+server:
+  mode: debug
+  port: 8080
 
 logger:
   level: DEBUG
   path: ./logs
+  file: log.txt
+#  daliy: true
+#  maxFiles: 31
+#  maxFileSize: 200
+
+#mysql:
+#  user: root
+#  passwd: root
+#  addr: 127.0.0.1:3306
+#  dbName: test
+#  collation: utf8
+#  timeout: 100000
+#  readTimeout: 50000
+#  writeTimeout: 50000
+
+#redis:
+#  addr: 127.0.0.1:6379
+#  password: 
+#  db: 0
+#  poolSize: 4
+#  maxIdle: 1
+#  dialTimeout: 5000
+#  readTimeout: 5000
+#  writeTimeout: 5000
+
+#zookeeper:
+#  servers: 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183
+#  sessionTimeoutKey: 60000
 
 version: 1.0.0

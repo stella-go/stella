@@ -2,12 +2,12 @@
 package main
 
 import (
-	"{{ project-name }}/rotater"
+	"{{ project-name }}/router"
 
 	"github.com/stella-go/siu"
 )
 
 func main() {
-	siu.Rotate(&rotater.HelloRotate{})
+	siu.Route(&router.HelloRoute{})
 	siu.Run()
 }
