@@ -3,7 +3,7 @@
 
 ## Installation
 ```bash
-go install github.com/stella-go/stella
+go get github.com/stella-go/stella
 ```
 
 ## Command Line
