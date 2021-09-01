@@ -22,6 +22,10 @@ import (
 	"github.com/stella-go/stella/cmd"
 )
 
+const (
+	VERSION = "v1.0.2"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -42,7 +46,7 @@ func main() {
 
 func usage() {
 	fmt.Fprintf(os.Stderr, `
-stella An efficient development tool
+stella An efficient development tool. %s
 Usage: 
 	sub-commands:
 		generate	Generate template code.
@@ -50,5 +54,5 @@ Usage:
 		line		Fill __LINE__ symbol.
 
 	stella <command> -h for more info.
-`)
+`, VERSION)
 }

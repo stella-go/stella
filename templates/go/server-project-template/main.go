@@ -8,6 +8,6 @@ import (
 )
 
 func main() {
-	siu.Route(&router.HelloRoute{})
+	siu.Route(&router.HelloRouter{})
 	siu.Run()
 }
