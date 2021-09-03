@@ -29,17 +29,19 @@ import (
 	"github.com/stella-go/stella/generator/parser"
 	"github.com/stella-go/stella/gofmt"
 	"github.com/stella-go/stella/line"
+	"github.com/stella-go/stella/version"
 )
 
 func Generate() {
 	flageSet := flag.NewFlagSet("stella generate", flag.ExitOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `stella An efficient development tool
+		fmt.Fprintf(os.Stderr, `
+stella An efficient development tool. %s
 
 Usage: 
 	stella generate -p model -i init.sql -o model
 
-`)
+`, version.VERSION)
 		flageSet.PrintDefaults()
 	}
 	p := flageSet.String("p", "model", "package name")
@@ -151,11 +153,12 @@ func writeFileTryFormat(output string, filename string, content string) {
 func Create() {
 	flageSet := flag.NewFlagSet("stella create", flag.ExitOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `stella An efficient development tool
+		fmt.Fprintf(os.Stderr, `
+stella An efficient development tool. %s
 Usage: 
 	stella create -n my-project
 
-`)
+`, version.VERSION)
 		flageSet.PrintDefaults()
 	}
 	l := flageSet.String("l", "go", "projcet language [go/java/node]")
@@ -202,12 +205,13 @@ func createProj(language string, stype string, name string, output string) {
 func Line() {
 	flageSet := flag.NewFlagSet("stella line", flag.ContinueOnError)
 	flageSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, `stella An efficient development tool
+		fmt.Fprintf(os.Stderr, `
+stella An efficient development tool. %s
 Usage: 
 	stella line [path/to [path/to ...]]
 
 	stella line, By default it is equivalent to "stella line ."
-`)
+`, version.VERSION)
 		flageSet.PrintDefaults()
 	}
 

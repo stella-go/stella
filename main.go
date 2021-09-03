@@ -20,10 +20,7 @@ import (
 	"os"
 
 	"github.com/stella-go/stella/cmd"
-)
-
-const (
-	VERSION = "v1.0.2"
+	"github.com/stella-go/stella/version"
 )
 
 func main() {
@@ -39,6 +36,9 @@ func main() {
 		cmd.Create()
 	case "line":
 		cmd.Line()
+	case "-v":
+	case "-version":
+		fmt.Println(version.VERSION)
 	default:
 		usage()
 	}
@@ -54,5 +54,5 @@ Usage:
 		line		Fill __LINE__ symbol.
 
 	stella <command> -h for more info.
-`, VERSION)
+`, version.VERSION)
 }
