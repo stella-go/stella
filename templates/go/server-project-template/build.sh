@@ -98,14 +98,14 @@ fi
 if ! $GO generate ; then
     echo "Build Generate failed."
 fi
-if ! $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
+if ! GOOS=linux GOARCH=amd64 $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi
 chmod -R a+x "${ASSEMBLY}"/bin
 echo "Building zip..."
 cd "${TARGET}" || exit
-zip -qry "${ASSEMBLY}".zip "${ASSEMBLY}" || exit 1
+zip -qry "${APPLICATION}".zip "${APPLICATION}" || exit 1
 
 echo "Build success. Assembly is ${ASSEMBLY}.zip"
 
