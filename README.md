@@ -193,6 +193,9 @@ Usage:
         stella line [path/to [path/to ...]]
 
         stella line, By default it is equivalent to "stella line ."
+  -h    print help info
+  -ignore string
+        ignore file patterns
 ```
 
 For example,

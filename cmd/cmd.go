@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/stella-go/stella/creator/proj"
 	"github.com/stella-go/stella/generator/curd"
@@ -207,14 +208,18 @@ Usage:
 
 	stella line, By default it is equivalent to "stella line ."
 `)
+		flageSet.PrintDefaults()
 	}
 
 	h := flageSet.Bool("h", false, "print help info")
+	ignore := flageSet.String("ignore", "", "ignore file patterns")
+
 	flageSet.Parse(os.Args[2:])
 	if *h {
 		flageSet.Usage()
 		return
 	}
+	ignores := strings.Split(*ignore, ",")
 	args := flageSet.Args()
 	roots := make([]string, 0)
 	if len(args) < 1 {
@@ -222,12 +227,12 @@ Usage:
 	} else {
 		roots = append(roots, args...)
 	}
-	fillLine(roots)
+	fillLine(roots, ignores)
 }
 
-func fillLine(roots []string) {
+func fillLine(roots []string, ignores []string) {
 	for _, root := range roots {
-		err := line.Fill(root)
+		err := line.Fill(root, ignores)
 		if err != nil {
 			printError("fill line error", err)
 		}
