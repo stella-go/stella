@@ -4,10 +4,10 @@ server:
   mode: debug
   port: 8080
 
-logger:
-  level: DEBUG
-  path: ./logs
-  file: log.txt
+# logger:
+#   level: DEBUG
+#   path: ./logs
+#   file: log.txt
 #  daliy: true
 #  maxFiles: 31
 #  maxFileSize: 200
