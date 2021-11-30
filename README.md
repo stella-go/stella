@@ -25,6 +25,8 @@ Conversion of SQL into structures and database operation templates
 Usage: 
         stella generate -p model -i init.sql -o model
 
+  -f string
+    	output file name
   -h    print help info
   -i string
         input sql file
