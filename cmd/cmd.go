@@ -39,7 +39,7 @@ func Generate() {
 stella An efficient development tool. %s
 
 Usage: 
-	stella generate -p model -i init.sql -o model
+	stella generate -p model -i init.sql -o model -f model
 
 `, version.VERSION)
 		flageSet.PrintDefaults()
@@ -47,13 +47,14 @@ Usage:
 	p := flageSet.String("p", "model", "package name")
 	i := flageSet.String("i", "", "input sql file")
 	o := flageSet.String("o", "", "output dictionary")
+	f := flageSet.String("f", "", "output file name")
 	h := flageSet.Bool("h", false, "print help info")
 	flageSet.Parse(os.Args[2:])
 	if *h {
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o)
+	generate(*p, *i, *o, *f)
 }
 
 func readFileWithStdin(input string) string {
@@ -78,15 +79,18 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string) {
-	filename := pkg + ".go"
+func generate(pkg string, input string, output string, file string) {
+	if file == "" {
+		file = pkg
+	}
+	filename := file + "_auto.go"
 	sql := readFileWithStdin(input)
 
 	statements := parser.Parse(sql)
 	content := model.Generate(pkg, statements)
 	writeFileTryFormat(output, filename, content)
 
-	filename = pkg + "_curd.go"
+	filename = pkg + "_auto_curd.go"
 	content = curd.Generate(pkg, statements)
 	writeFileTryFormat(output, filename, content)
 }

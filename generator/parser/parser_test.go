@@ -16,19 +16,12 @@ package parser
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 )
 
-func TestParse(t *testing.T) {
-	bs, _ := ioutil.ReadFile("D:\\GoWorkspace\\pojo\\db.sql")
-	sql := string(bs)
-	s := Parse(sql)
-	t.Log(s)
-}
-
 func TestParse2(t *testing.T) {
 	sql := `
+drop table if exists tb_dept2;
 create table tb_dept2(
     Id int auto_increment,#部门编号 整形 主键 自增长''""
     Name varchar(18),#部门名称
@@ -75,12 +68,6 @@ primary key (Id,Name)
 	t.Log(s)
 }
 
-func Test_toCamelCase(t *testing.T) {
-	ori := "a_b_c"
-	camel := toCamelCase(ori)
-	t.Log(camel)
-}
-
 func TestSplitSQL(t *testing.T) {
 	sql := `
 create table tb_dept(
@@ -104,12 +91,12 @@ create table tb_dept2(
     description varchar(100)#描述
 );
 `
-	splits := SplitSQL(sql)
+	splits := Parse(sql)
 	t.Log(splits)
 }
 func TestSplitSQL2(t *testing.T) {
 	sql := "create table tb_dept(`Id'` int primary key auto_increment, Name varchar(18), description varchar(100))"
-	splits := SplitSQL(sql)
+	splits := Parse(sql)
 	t.Log(splits)
 }
 

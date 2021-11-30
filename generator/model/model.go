@@ -16,10 +16,12 @@ package model
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/stella-go/stella/common"
+	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
 )
 
@@ -36,14 +38,20 @@ var (
 		"BIGINT":    "int64",
 		"VARCHAR":   "string",
 		"TEXT":      "string",
-		"DATE":      "time.Time",
-		"DATETIME":  "time.Time",
-		"TIMESTAMP": "time.Time",
+		"DATE":      "Time",
+		"DATETIME":  "Time",
+		"TIMESTAMP": "Time",
 		"default":   "interface{}",
 	}
 	typeImportsMapping = map[string]string{
-		"time.Time": "time",
+		"Time": "time",
 	}
+	Time = `type Time time.Time
+
+func (t Time) MarshalJSON() ([]byte, error) {
+	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
+	return []byte(stamp), nil
+}`
 )
 
 type Field struct {
@@ -91,21 +99,32 @@ func Generate(pkg string, statements []*parser.Statement) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["fmt"] = common.Null
 	structs := make([]string, 0)
+	defineTime := false
 	for _, statement := range statements {
 		fields := make([]*Field, 0)
-		for _, prop := range statement.Properties {
-			typ, ok := typeMapping[prop.DataBaseType]
+		re := regexp.MustCompile(` *?\(.*\)`)
+		for _, col := range statement.Columns {
+			colType := re.ReplaceAllString(col.Type, "")
+			typ, ok := typeMapping[colType]
 			if !ok {
 				typ = typeMapping["default"]
 			}
+			if typ == "Time" {
+				defineTime = true
+			}
 			importsMap[typeImportsMapping[typ]] = common.Null
 
-			tag := fmt.Sprintf("json:\"%s\"", prop.SnakeName)
-			field := &Field{prop.PropertyName, typ, tag}
+			tag := fmt.Sprintf("json:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name))
+			field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
 			fields = append(fields, field)
 		}
-		struc := &Struct{statement.ModelName, fields}
+		struc := &Struct{generator.FirstUpperCamelCase(statement.TableName.Name), fields}
 		structs = append(structs, struc.String())
+	}
+
+	t := ""
+	if defineTime {
+		t = "\n" + Time
 	}
 
 	importsLines := make([]string, 0)
@@ -115,5 +134,5 @@ func Generate(pkg string, statements []*parser.Statement) string {
 		}
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
-	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), strings.Join(structs, "\n"))
+	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)%s\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), t, strings.Join(structs, "\n"))
 }
