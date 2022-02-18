@@ -16,6 +16,7 @@ if [ -n "$1" ]; then
 fi
 echo "Building profile: ${PROFILE}"
 
+CONFIG_DIR="${PROJECT_DIR}/config"
 PROFILE_DIR="${PROJECT_DIR}/profiles/${PROFILE}"
 RESOURCES_DIR="${PROJECT_DIR}/resources"
 LIBS_DIR="${PROJECT_DIR}/lib"
@@ -25,9 +26,6 @@ CONFIG_FILE="${PROFILE_DIR}/application.yml"
 
 if [ ! -f "${CONFIG_FILE}" ]; then
   CONFIG_FILE="${PROJECT_DIR}/config/application.yml"
-fi
-if [ ! -f "${CONFIG_FILE}" ]; then
-  CONFIG_FILE="${PROJECT_DIR}/application.yml"
 fi
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "ERROR: Not Found config file."
@@ -55,28 +53,35 @@ ASSEMBLY="${TARGET}/${APPLICATION}"
 mkdir -p "${ASSEMBLY}" "${ASSEMBLY}"/bin "${ASSEMBLY}"/config "${ASSEMBLY}"/resources "${ASSEMBLY}"/lib
 
 echo "Building copy files..."
-if [ -d "$RESOURCES_DIR" ]; then
-  FILES=$(ls "${RESOURCES_DIR}")
+
+if [ -d "$CONFIG_DIR" ]; then
+  FILES=$(ls "${CONFIG_DIR}")
   if [ -n "${FILES}" ]; then
-    cp "${RESOURCES_DIR}"/* "${ASSEMBLY}"/resources
-  fi
-fi
-if [ -d "$SCRIPTS_DIR" ]; then
-  FILES=$(ls "${SCRIPTS_DIR}")
-  if [ -n "${FILES}" ]; then
-    cp "${SCRIPTS_DIR}"/* "${ASSEMBLY}"/bin
+    cp -rf "${CONFIG_DIR}"/* "${ASSEMBLY}"/config
   fi
 fi
 if [ -d "$PROFILE_DIR" ]; then
   FILES=$(ls "${PROFILE_DIR}")
   if [ -n "${FILES}" ]; then
-    cp "${PROFILE_DIR}"/* "${ASSEMBLY}"/config
+    cp -rf "${PROFILE_DIR}"/* "${ASSEMBLY}"/config
+  fi
+fi
+if [ -d "$RESOURCES_DIR" ]; then
+  FILES=$(ls "${RESOURCES_DIR}")
+  if [ -n "${FILES}" ]; then
+    cp -rf "${RESOURCES_DIR}"/* "${ASSEMBLY}"/resources
   fi
 fi
 if [ -d "$LIBS_DIR" ]; then
   FILES=$(ls "${LIBS_DIR}")
   if [ -n "${FILES}" ]; then
-    cp "${LIBS_DIR}"/* "${ASSEMBLY}"/lib
+    cp -rf "${LIBS_DIR}"/* "${ASSEMBLY}"/lib
+  fi
+fi
+if [ -d "$SCRIPTS_DIR" ]; then
+  FILES=$(ls "${SCRIPTS_DIR}")
+  if [ -n "${FILES}" ]; then
+    cp -rf "${SCRIPTS_DIR}"/* "${ASSEMBLY}"/bin
   fi
 fi
 
