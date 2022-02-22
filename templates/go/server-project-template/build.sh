@@ -57,31 +57,31 @@ echo "Building copy files..."
 if [ -d "$CONFIG_DIR" ]; then
   FILES=$(ls "${CONFIG_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rf "${CONFIG_DIR}"/* "${ASSEMBLY}"/config
+    cp -rfL "${CONFIG_DIR}"/* "${ASSEMBLY}"/config
   fi
 fi
 if [ -d "$PROFILE_DIR" ]; then
   FILES=$(ls "${PROFILE_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rf "${PROFILE_DIR}"/* "${ASSEMBLY}"/config
+    cp -rfL "${PROFILE_DIR}"/* "${ASSEMBLY}"/config
   fi
 fi
 if [ -d "$RESOURCES_DIR" ]; then
   FILES=$(ls "${RESOURCES_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rf "${RESOURCES_DIR}"/* "${ASSEMBLY}"/resources
+    cp -rfL "${RESOURCES_DIR}"/* "${ASSEMBLY}"/resources
   fi
 fi
 if [ -d "$LIBS_DIR" ]; then
   FILES=$(ls "${LIBS_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rf "${LIBS_DIR}"/* "${ASSEMBLY}"/lib
+    cp -rfL "${LIBS_DIR}"/* "${ASSEMBLY}"/lib
   fi
 fi
 if [ -d "$SCRIPTS_DIR" ]; then
   FILES=$(ls "${SCRIPTS_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rf "${SCRIPTS_DIR}"/* "${ASSEMBLY}"/bin
+    cp -rfL "${SCRIPTS_DIR}"/* "${ASSEMBLY}"/bin
   fi
 fi
 
