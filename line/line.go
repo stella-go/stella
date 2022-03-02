@@ -28,17 +28,24 @@ var (
 	re = regexp.MustCompile("(.*?__LINE)(.*?)(__.*?)")
 )
 
-func Fill(root string, ignores []string) error {
+func Fill(root string, includes []string, ignores []string) error {
 	return filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if isIgnore, e := match(ignores, root, path); e != nil {
-			return err
-		} else if isIgnore {
-			return nil
-		}
 		if !info.IsDir() {
+			if isInclude, e := match(includes, path); e != nil {
+				return err
+			} else if !isInclude {
+				fmt.Println("not include", path)
+				return nil
+			}
+			if isIgnore, e := match(ignores, path); e != nil {
+				return err
+			} else if isIgnore {
+				fmt.Println("ignore", path)
+				return nil
+			}
 			content, err := ioutil.ReadFile(path)
 			if err != nil {
 				return err
@@ -56,19 +63,16 @@ func Fill(root string, ignores []string) error {
 	})
 }
 
-func match(ignores []string, root string, path string) (bool, error) {
+func match(patterns []string, path string) (bool, error) {
 	var err error
-	for _, ignore := range ignores {
-		ignorePath := filepath.Join(root, ignore)
-		if strings.HasPrefix(path, ignorePath) {
-			return true, nil
-		}
-		matches, e := filepath.Glob(ignorePath)
+	for _, pattern := range patterns {
+		p := filepath.Join(filepath.Dir(path), pattern)
+		matches, e := filepath.Glob(p)
 
 		if e != nil {
 			err = e
 		}
-
+		fmt.Println(path, matches)
 		if len(matches) != 0 && contains(matches, path) {
 			return true, nil
 		}
