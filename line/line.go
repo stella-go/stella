@@ -37,13 +37,11 @@ func Fill(root string, includes []string, ignores []string) error {
 			if isInclude, e := match(includes, path); e != nil {
 				return err
 			} else if !isInclude {
-				fmt.Println("not include", path)
 				return nil
 			}
 			if isIgnore, e := match(ignores, path); e != nil {
 				return err
 			} else if isIgnore {
-				fmt.Println("ignore", path)
 				return nil
 			}
 			content, err := ioutil.ReadFile(path)
@@ -72,7 +70,6 @@ func match(patterns []string, path string) (bool, error) {
 		if e != nil {
 			err = e
 		}
-		fmt.Println(path, matches)
 		if len(matches) != 0 && contains(matches, path) {
 			return true, nil
 		}

@@ -198,6 +198,8 @@ Usage:
   -h    print help info
   -ignore string
         ignore file patterns
+  -include string
+        include file patterns (default "*.*")
 ```
 
 For example,
