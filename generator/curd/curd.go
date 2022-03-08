@@ -109,6 +109,9 @@ func u(statement *parser.Statement) (string, []string) {
 		values := make([]string, 0)
 
 		for _, col := range statement.Columns {
+			if col.AutoIncrement || col.CurrentTimestamp {
+				continue
+			}
 			if contains(keys, col.ColumnName.Name) {
 				continue
 			}
