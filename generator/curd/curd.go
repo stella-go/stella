@@ -204,6 +204,35 @@ func r(statement *parser.Statement) (string, []string) {
 	return count, results, nil
 }`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, strings.Join(binds, ", "))
 	}
+
+	SQL1 := fmt.Sprintf("select count(*) from `%s`", statement.TableName.Name)
+	SQL2 := fmt.Sprintf("select %s from `%s` limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
+	funcLines += fmt.Sprintf(`func QueryMany%s (db *sql.DB, page int, size int) (int, []*%s, error) {
+SQL1 := "%s"
+count := 0
+err := db.QueryRow(SQL1).Scan(&count)
+if err != nil {
+	return 0, nil, err
+}
+
+SQL2 := "%s"
+rows, err := db.Query(SQL2, (page-1)*size, size)
+if err != nil {
+	if err != sql.ErrNoRows {
+		return 0, nil, err
+	}
+}
+defer rows.Close()
+
+results := make([]*%s, 0)
+for rows.Next() {
+	ret := &%s{}
+	rows.Scan(%s)
+	results = append(results, ret)
+}
+return count, results, nil
+}`+"\n\n", modelName, modelName, SQL1, SQL2, modelName, modelName, strings.Join(binds, ", "))
+
 	return funcLines, nil
 }
 
