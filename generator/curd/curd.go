@@ -62,7 +62,13 @@ func Generate(pkg string, statements []*parser.Statement) string {
 		}
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
-	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), strings.Join(functions, "\n\n"))
+
+	datasourceLines := `type DataSource interface {
+		Exec(query string, args ...interface{}) (sql.Result, error)
+		QueryRow(query string, args ...interface{}) *sql.Row
+		Query(query string, args ...interface{}) (*sql.Rows, error)
+	}`
+	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n\n"))
 }
 
 func c(statement *parser.Statement) (string, []string) {
@@ -79,7 +85,7 @@ func c(statement *parser.Statement) (string, []string) {
 		args = append(args, "s."+generator.FirstUpperCamelCase(col.ColumnName.Name))
 	}
 	SQL := fmt.Sprintf("insert into `%s` (%s) values (%s)", statement.TableName.Name, strings.Join(columnNames, ", "), strings.Join(placeHolder, ", "))
-	funcLines := fmt.Sprintf(`func Create%s (db *sql.DB, s *%s) error {
+	funcLines := fmt.Sprintf(`func Create%s (db DataSource, s *%s) error {
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
@@ -117,7 +123,7 @@ func u(statement *parser.Statement) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(col))
 		}
 		SQL := fmt.Sprintf("update `%s` set %s where %s", statement.TableName.Name, strings.Join(values, ", "), strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func Update%sBy%s (db *sql.DB, s *%s) error {
+		funcLines += fmt.Sprintf(`func Update%sBy%s (db DataSource, s *%s) error {
 	SQL := "%s"
 	ret, err := db.Exec(SQL, %s)
 	if err != nil {
@@ -155,7 +161,7 @@ func r(statement *parser.Statement) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(col))
 		}
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func Query%sBy%s (db *sql.DB, s *%s) (*%s, error) {
+		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
 	SQL := "%s"
 	ret := &%s{}
 	err := db.QueryRow(SQL, %s).Scan(%s)
@@ -178,7 +184,7 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		SQL2 := fmt.Sprintf("select %s from `%s` where %s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func QueryMany%sBy%s (db *sql.DB, s *%s, page int, size int) (int, []*%s, error) {
+		funcLines += fmt.Sprintf(`func QueryMany%sBy%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
 	SQL1 := "%s"
 	count := 0
 	err := db.QueryRow(SQL1, %s).Scan(&count)
@@ -207,7 +213,7 @@ func r(statement *parser.Statement) (string, []string) {
 
 	SQL1 := fmt.Sprintf("select count(*) from `%s`", statement.TableName.Name)
 	SQL2 := fmt.Sprintf("select %s from `%s` limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
-	funcLines += fmt.Sprintf(`func QueryMany%s (db *sql.DB, page int, size int) (int, []*%s, error) {
+	funcLines += fmt.Sprintf(`func QueryMany%s (db DataSource, page int, size int) (int, []*%s, error) {
 SQL1 := "%s"
 count := 0
 err := db.QueryRow(SQL1).Scan(&count)
@@ -250,7 +256,7 @@ func d(statement *parser.Statement) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(col))
 		}
 		SQL := fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func Delete%sBy%s (db *sql.DB, s *%s) error {
+		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
 	SQL := "%s"
 	ret, err := db.Exec(SQL, %s)
 	if err != nil {
