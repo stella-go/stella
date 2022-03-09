@@ -170,7 +170,10 @@ func r(statement *parser.Statement) (string, []string) {
 	ret := &%s{}
 	err := db.QueryRow(SQL, %s).Scan(%s)
 	if err != nil {
-		return nil,err
+		if err != sql.ErrNoRows {
+			return nil,err
+		}
+		return nil,nil
 	}
 	return ret,nil
 }`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, strings.Join(args, ", "), strings.Join(binds, ", "))
