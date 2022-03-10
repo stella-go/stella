@@ -27,8 +27,9 @@ import (
 func Generate(pkg string, statements []*parser.Statement) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
-	importsMap["strings"] = common.Null
 	importsMap["reflect"] = common.Null
+	importsMap["strings"] = common.Null
+	importsMap["time"] = common.Null
 	functions := make([]string, 0)
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
@@ -83,7 +84,11 @@ func c(statement *parser.Statement) (string, []string) {
 		}
 		columnNames = append(columnNames, "`"+col.ColumnName.Name+"`")
 		placeHolder = append(placeHolder, "?")
-		args = append(args, "s."+generator.FirstUpperCamelCase(col.ColumnName.Name))
+		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+			arg = "time.Time(" + arg + ")"
+		}
+		args = append(args, arg)
 	}
 	SQL := fmt.Sprintf("insert into `%s` (%s) values (%s)", statement.TableName.Name, strings.Join(columnNames, ", "), strings.Join(placeHolder, ", "))
 	funcLines := fmt.Sprintf(`func Create%s (db DataSource, s *%s) error {
@@ -113,18 +118,26 @@ func u(statement *parser.Statement) (string, []string) {
 			if col.AutoIncrement || col.CurrentTimestamp {
 				continue
 			}
-			if contains(keys, col.ColumnName.Name) {
+			if contains(keys, col) {
 				continue
 			}
 			values = append(values, "`"+col.ColumnName.Name+"` = ?")
-			args = append(args, "s."+generator.FirstUpperCamelCase(col.ColumnName.Name))
+			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				arg = "time.Time(" + arg + ")"
+			}
+			args = append(args, arg)
 		}
 		fields := make([]string, 0)
 		conditions := make([]string, 0)
 		for _, col := range keys {
-			conditions = append(conditions, "`"+col+"` = ?")
-			args = append(args, "s."+generator.FirstUpperCamelCase(col))
-			fields = append(fields, generator.FirstUpperCamelCase(col))
+			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
+			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				arg = "time.Time(" + arg + ")"
+			}
+			args = append(args, arg)
+			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL := fmt.Sprintf("update `%s` set %s where %s", statement.TableName.Name, strings.Join(values, ", "), strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Update%sBy%s (db DataSource, s *%s) error {
@@ -160,9 +173,13 @@ func r(statement *parser.Statement) (string, []string) {
 		conditions := make([]string, 0)
 		args := make([]string, 0)
 		for _, col := range keys {
-			conditions = append(conditions, "`"+col+"` = ?")
-			args = append(args, "s."+generator.FirstUpperCamelCase(col))
-			fields = append(fields, generator.FirstUpperCamelCase(col))
+			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
+			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				arg = "time.Time(" + arg + ")"
+			}
+			args = append(args, arg)
+			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
@@ -185,9 +202,13 @@ func r(statement *parser.Statement) (string, []string) {
 		conditions := make([]string, 0)
 		args := make([]string, 0)
 		for _, col := range keys {
-			conditions = append(conditions, "`"+col+"` = ?")
-			args = append(args, "s."+generator.FirstUpperCamelCase(col))
-			fields = append(fields, generator.FirstUpperCamelCase(col))
+			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
+			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				arg = "time.Time(" + arg + ")"
+			}
+			args = append(args, arg)
+			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		SQL2 := fmt.Sprintf("select %s from `%s` where %s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "))
@@ -223,11 +244,15 @@ func r(statement *parser.Statement) (string, []string) {
     if s != nil {
 `
 	for _, col := range statement.Columns {
+		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+			arg = "time.Time(" + arg + ")"
+		}
 		where += fmt.Sprintf(`        if v := reflect.ValueOf(s.%s); !v.IsZero() {
             where += "and `+"`%s`"+` = ? "
-            args = append(args, s.%s)
+            args = append(args, %s)
         }
-`, generator.FirstUpperCamelCase(col.ColumnName.Name), col.ColumnName, generator.FirstUpperCamelCase(col.ColumnName.Name))
+`, generator.FirstUpperCamelCase(col.ColumnName.Name), col.ColumnName, arg)
 	}
 
 	where += `        where = strings.TrimLeft(where, "and")
@@ -279,9 +304,13 @@ func d(statement *parser.Statement) (string, []string) {
 		conditions := make([]string, 0)
 		args := make([]string, 0)
 		for _, col := range keys {
-			conditions = append(conditions, "`"+col+"` = ?")
-			args = append(args, "s."+generator.FirstUpperCamelCase(col))
-			fields = append(fields, generator.FirstUpperCamelCase(col))
+			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
+			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				arg = "time.Time(" + arg + ")"
+			}
+			args = append(args, arg)
+			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL := fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
@@ -300,45 +329,60 @@ func d(statement *parser.Statement) (string, []string) {
 	return funcLines, nil
 }
 
-func getIndexKeyPairs(statement *parser.Statement) [][]string {
-	keyPairs := make([][]string, 0)
+func getIndexKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
+	keyPairs := make([][]*parser.ColumnDefinition, 0)
 	for _, pair := range statement.IndexKeyPairs {
-		p := make([]string, 0)
+		p := make([]*parser.ColumnDefinition, 0)
 		for _, k := range pair {
-			p = append(p, k.Name)
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name == k.Name {
+					p = append(p, c)
+					break
+				}
+			}
 		}
 		keyPairs = append(keyPairs, p)
 	}
 	return keyPairs
 }
 
-func getUniqKeyPairs(statement *parser.Statement) [][]string {
-	keyPairs := make([][]string, 0)
+func getUniqKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
+	keyPairs := make([][]*parser.ColumnDefinition, 0)
 	for _, col := range statement.Columns {
 		if col.PrimaryKey || col.UniqueKey {
-			keyPairs = append(keyPairs, []string{col.ColumnName.Name})
+			keyPairs = append(keyPairs, []*parser.ColumnDefinition{col})
 		}
 	}
 	for _, pair := range statement.PrimaryKeyPairs {
-		p := make([]string, 0)
+		p := make([]*parser.ColumnDefinition, 0)
 		for _, k := range pair {
-			p = append(p, k.Name)
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name == k.Name {
+					p = append(p, c)
+					break
+				}
+			}
 		}
 		keyPairs = append(keyPairs, p)
 	}
 	for _, pair := range statement.UniqKeyPairs {
-		p := make([]string, 0)
+		p := make([]*parser.ColumnDefinition, 0)
 		for _, k := range pair {
-			p = append(p, k.Name)
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name == k.Name {
+					p = append(p, c)
+					break
+				}
+			}
 		}
 		keyPairs = append(keyPairs, p)
 	}
 	return keyPairs
 }
 
-func contains(arr []string, s string) bool {
+func contains(arr []*parser.ColumnDefinition, s *parser.ColumnDefinition) bool {
 	for _, a := range arr {
-		if s == a {
+		if s.ColumnName.Name == a.ColumnName.Name {
 			return true
 		}
 	}
