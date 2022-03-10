@@ -28,7 +28,7 @@ var (
 	re = regexp.MustCompile("(.*?__LINE)(.*?)(__.*?)")
 )
 
-func Fill(root string, includes []string, ignores []string) error {
+func Fill(root string, includes []string, ignores []string, shortName bool) error {
 	return filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -50,9 +50,14 @@ func Fill(root string, includes []string, ignores []string) error {
 			}
 			content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 			lines := bytes.Split(content, []byte("\n"))
-			p := strings.ReplaceAll(path, "\\", "/")
+			name := ""
+			if shortName {
+				name = info.Name()
+			} else {
+				name = strings.ReplaceAll(path, "\\", "/")
+			}
 			for line, c := range lines {
-				lines[line] = re.ReplaceAll(c, []byte(fmt.Sprintf("${1}:%s:%d${3}", p, line+1)))
+				lines[line] = re.ReplaceAll(c, []byte(fmt.Sprintf("${1}:%s:%d${3}", name, line+1)))
 			}
 			content = bytes.Join(lines, []byte("\n"))
 			return ioutil.WriteFile(path, content, info.Mode())
