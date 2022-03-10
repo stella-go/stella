@@ -27,6 +27,7 @@ import (
 func Generate(pkg string, statements []*parser.Statement) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
+	importsMap["fmt"] = common.Null
 	importsMap["reflect"] = common.Null
 	importsMap["strings"] = common.Null
 	importsMap["time"] = common.Null
@@ -258,13 +259,13 @@ func r(statement *parser.Statement) (string, []string) {
 	where += `        where = strings.TrimLeft(where, "and")
 	    where = strings.TrimSpace(where)
         if where != "" {
-            SQL1 += " where " + where
-	        SQL2 += " where " + where
+			SQL1 = fmt.Sprintf(SQL1, "where "+where)
+			SQL2 = fmt.Sprintf(SQL2, "where "+where)
         }
     }`
 
-	SQL1 := fmt.Sprintf("select count(*) from `%s`", statement.TableName.Name)
-	SQL2 := fmt.Sprintf("select %s from `%s`", strings.Join(names, ", "), statement.TableName.Name)
+	SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
+	SQL2 := fmt.Sprintf("select %s from `%s` %%s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
 	funcLines += fmt.Sprintf(`func QueryMany%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
 	SQL1 := "%s"
 	SQL2 := "%s"
@@ -275,7 +276,7 @@ func r(statement *parser.Statement) (string, []string) {
 		return 0, nil, err
 	}
 	args = append(args, (page-1)*size, size)
-	rows, err := db.Query(SQL2 + " limit ?, ?", args...)
+	rows, err := db.Query(SQL2, args...)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return 0, nil, err
