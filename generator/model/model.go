@@ -36,6 +36,7 @@ var (
 		"TINYINT":   "bool",
 		"INT":       "int",
 		"BIGINT":    "int64",
+		"CHAR":      "string",
 		"VARCHAR":   "string",
 		"TEXT":      "string",
 		"DATE":      "Time",
