@@ -259,10 +259,11 @@ func r(statement *parser.Statement) (string, []string) {
 	where += `        where = strings.TrimLeft(where, "and")
 	    where = strings.TrimSpace(where)
         if where != "" {
-			SQL1 = fmt.Sprintf(SQL1, "where "+where)
-			SQL2 = fmt.Sprintf(SQL2, "where "+where)
+			where = "where " + where
         }
-    }`
+    }
+	SQL1 = fmt.Sprintf(SQL1, where)
+	SQL2 = fmt.Sprintf(SQL2, where)`
 
 	SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
 	SQL2 := fmt.Sprintf("select %s from `%s` %%s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
