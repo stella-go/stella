@@ -204,7 +204,7 @@ Usage:
 
 For example,
 ```go
-//go:generate stella line
+//go:generate stella line -include="*.go" .
 package main
 
 import (
@@ -218,7 +218,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line
+//go:generate stella line -include="*.go" .
 package main
 
 import (
@@ -232,7 +232,7 @@ func main() {
 
 And then insert an new line.
 ```go
-//go:generate stella line
+//go:generate stella line -include="*.go" .
 package main
 
 import (
@@ -247,7 +247,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line
+//go:generate stella line -include="*.go" .
 package main
 
 import (
