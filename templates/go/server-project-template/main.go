@@ -1,4 +1,4 @@
-//go:generate stella line -include="*.go" .
+//go:generate stella line -include=*.go -s .
 package main
 
 import (
