@@ -49,8 +49,9 @@ Usage:
 	o := flageSet.String("o", "", "output dictionary")
 	f := flageSet.String("f", "", "output file name")
 	h := flageSet.Bool("h", false, "print help info")
+	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
-	if *h {
+	if *h || *help {
 		flageSet.Usage()
 		return
 	}
@@ -171,8 +172,9 @@ Usage:
 	o := flageSet.String("o", ".", "output dictionary")
 
 	h := flageSet.Bool("h", false, "print help info")
+	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
-	if *h {
+	if *h || *help {
 		flageSet.Usage()
 		return
 	}
@@ -220,12 +222,13 @@ Usage:
 	}
 
 	h := flageSet.Bool("h", false, "print help info")
+	help := flageSet.Bool("help", false, "print help info")
 	ignore := flageSet.String("ignore", "", "ignore file patterns")
 	include := flageSet.String("include", "*.*", "include file patterns")
 	s := flageSet.Bool("s", false, "use file short name")
 
 	flageSet.Parse(os.Args[2:])
-	if *h {
+	if *h || *help {
 		flageSet.Usage()
 		return
 	}
