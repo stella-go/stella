@@ -16,12 +16,46 @@ package curd
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
+)
+
+var (
+	typeMapping = map[string]string{
+		"TINYINT":   "bool",
+		"INT":       "int",
+		"BIGINT":    "int64",
+		"FLOAT":     "float64",
+		"CHAR":      "string",
+		"VARCHAR":   "string",
+		"TEXT":      "string",
+		"DATE":      "Time",
+		"DATETIME":  "Time",
+		"TIMESTAMP": "Time",
+		"default":   "interface{}",
+	}
+	nullTypesMapping = map[string]string{
+		"bool":    "sql.NullBool",
+		"int":     "sql.NullInt32",
+		"int64":   "sql.NullInt64",
+		"float64": "sql.NullFloat64",
+		"string":  "sql.NullString",
+		"Time":    "sql.NullTime",
+	}
+	nullTypesValueMapping = map[string]string{
+		"sql.NullBool":    "Bool",
+		"sql.NullInt32":   "Int32",
+		"sql.NullInt64":   "Int64",
+		"sql.NullFloat64": "Float64",
+		"sql.NullString":  "String",
+		"sql.NullTime":    "Time",
+	}
+	nullTypesSort = []string{"sql.NullBool", "sql.NullInt32", "sql.NullInt64", "sql.NullFloat64", "sql.NullString", "sql.NullTime"}
 )
 
 func Generate(pkg string, statements []*parser.Statement) string {
@@ -161,12 +195,52 @@ func r(statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	names := make([]string, 0)
+	nullable := make(map[string][]string)
 	binds := make([]string, 0)
 
+	re := regexp.MustCompile(` *?\(.*\)`)
 	for _, col := range statement.Columns {
 		names = append(names, "`"+col.ColumnName.Name+"`")
-		binds = append(binds, "&ret."+generator.FirstUpperCamelCase(col.ColumnName.Name))
+		if !col.NotNull {
+			colType := re.ReplaceAllString(col.Type, "")
+			typ, ok := typeMapping[colType]
+			if !ok {
+				typ = typeMapping["default"]
+			}
+			nullType := nullTypesMapping[typ]
+			if list, ok := nullable[nullType]; ok {
+				nullable[nullType] = append(list, generator.FirstUpperCamelCase(col.ColumnName.Name))
+			} else {
+				nullable[nullType] = []string{generator.FirstUpperCamelCase(col.ColumnName.Name)}
+			}
+			binds = append(binds, "&"+generator.FirstUpperCamelCase(col.ColumnName.Name))
+		} else {
+			binds = append(binds, "&ret."+generator.FirstUpperCamelCase(col.ColumnName.Name))
+		}
 	}
+
+	nullableDefinition := ""
+	for _, v := range nullTypesSort {
+		if names, ok := nullable[v]; ok {
+			nullableDefinition += fmt.Sprintf("var %s %s\n", strings.Join(names, ", "), v)
+		}
+	}
+	nullableDefinition = nullableDefinition[:len(nullableDefinition)-1]
+	nullableAssignment := ""
+	for _, v := range nullTypesSort {
+		if names, ok := nullable[v]; ok {
+			for _, name := range names {
+				nullValue := name + "." + nullTypesValueMapping[v]
+				if v == "sql.NullInt32" {
+					nullValue = "int(" + nullValue + ")"
+				}
+				nullableAssignment += fmt.Sprintf(`if %s.Valid {
+		ret.%s = %s
+	}`+"\n", name, name, nullValue)
+			}
+		}
+	}
+	nullableAssignment = nullableAssignment[:len(nullableAssignment)-1]
 
 	uniqKeyPairs := getUniqKeyPairs(statement)
 	for _, keys := range uniqKeyPairs {
@@ -186,6 +260,7 @@ func r(statement *parser.Statement) (string, []string) {
 		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
 	SQL := "%s"
 	ret := &%s{}
+	%s
 	err := db.QueryRow(SQL, %s).Scan(%s)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -193,8 +268,9 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 		return nil,nil
 	}
+	%s
 	return ret,nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, strings.Join(args, ", "), strings.Join(binds, ", "))
+}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, nullableDefinition, strings.Join(args, ", "), strings.Join(binds, ", "), nullableAssignment)
 	}
 
 	indexKeyPairs := getIndexKeyPairs(statement)
@@ -233,11 +309,13 @@ func r(statement *parser.Statement) (string, []string) {
 	results := make([]*%s, 0)
 	for rows.Next() {
 		ret := &%s{}
+		%s
 		rows.Scan(%s)
+		%s
 		results = append(results, ret)
 	}
 	return count, results, nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, strings.Join(binds, ", "))
+}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
 	}
 
 	where := `    where := ""
@@ -288,11 +366,13 @@ func r(statement *parser.Statement) (string, []string) {
 	results := make([]*%s, 0)
 	for rows.Next() {
 		ret := &%s{}
+		%s
 		rows.Scan(%s)
+		%s
 		results = append(results, ret)
 	}
 	return count, results, nil
-}`+"\n\n", modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, strings.Join(binds, ", "))
+}`+"\n\n", modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
 
 	return funcLines, nil
 }

@@ -36,6 +36,7 @@ var (
 		"TINYINT":   "bool",
 		"INT":       "int",
 		"BIGINT":    "int64",
+		"FLOAT":     "float64",
 		"CHAR":      "string",
 		"VARCHAR":   "string",
 		"TEXT":      "string",
@@ -62,7 +63,6 @@ type Field struct {
 }
 
 func (f *Field) String() string {
-	time.Now()
 	return fmt.Sprintf("%s %s `%s`", f.name, f.typ, f.tag)
 }
 
@@ -90,6 +90,9 @@ func (s *Struct) toString() string {
 		line := f.name + ": " + placeHolder
 		formats = append(formats, line)
 		arg := "s." + f.name
+		if f.typ == "Time" {
+			arg = "time.Time(" + arg + ")"
+		}
 		args = append(args, arg)
 	}
 

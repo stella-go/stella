@@ -113,6 +113,8 @@ func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext)
 			column.UniqueKey = true
 		case *CurrentTimestamp:
 			column.CurrentTimestamp = true
+		case *NotNull:
+			column.NotNull = true
 		}
 	}
 	return column
@@ -139,6 +141,17 @@ func (v *MysqlVisitor) VisitDefaultValue(ctx *mysql.DefaultValueContext) interfa
 		if obj := current.Accept(v); obj != nil {
 			return obj
 		}
+	}
+	return nil
+}
+
+func (v *MysqlVisitor) VisitNullColumnConstraint(ctx *mysql.NullColumnConstraintContext) interface{} {
+	return ctx.NullNotnull().Accept(v)
+}
+
+func (v *MysqlVisitor) VisitNullNotnull(ctx *mysql.NullNotnullContext) interface{} {
+	if !ctx.IsEmpty() && ctx.GetText() == "NOTNULL" {
+		return &NotNull{}
 	}
 	return nil
 }
