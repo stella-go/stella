@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -50,24 +50,22 @@ var (
 	Time = `type Time time.Time
 
 func (t Time) MarshalJSON() ([]byte, error) {
-	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
-	return []byte(stamp), nil
+    var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
+    return []byte(stamp), nil
 }
-
 func (t *Time) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		return nil
-	}
-	tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
-	if err != nil {
-		return err
-	}
-	*t = Time(tm)
-	return err
+    if string(data) == "null" {
+        return nil
+    }
+    tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
+    if err != nil {
+        return err
+    }
+    *t = Time(tm)
+    return err
 }
-
 func (t Time) String() string {
-	return time.Time(t).String()
+    return time.Time(t).String()
 }`
 )
 
@@ -138,7 +136,7 @@ func Generate(pkg string, statements []*parser.Statement) string {
 
 	t := ""
 	if defineTime {
-		t = "\n" + Time
+		t = "\n" + Time + "\n"
 	}
 
 	importsLines := make([]string, 0)

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -100,11 +100,12 @@ func Generate(pkg string, statements []*parser.Statement, logic string) string {
 	}
 
 	datasourceLines := `type DataSource interface {
-		Exec(query string, args ...interface{}) (sql.Result, error)
-		QueryRow(query string, args ...interface{}) *sql.Row
-		Query(query string, args ...interface{}) (*sql.Rows, error)
-	}`
-	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n\n"))
+    Exec(query string, args ...interface{}) (sql.Result, error)
+    QueryRow(query string, args ...interface{}) *sql.Row
+    Query(query string, args ...interface{}) (*sql.Rows, error)
+}
+`
+	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n"))
 }
 
 func c(statement *parser.Statement) (string, []string) {
@@ -129,14 +130,15 @@ func c(statement *parser.Statement) (string, []string) {
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
-    	return err
+        return err
     }
     _, err = ret.RowsAffected()
     if err != nil {
-    	return err
+        return err
     }
     return nil
-}`+"\n\n", modelName, modelName, SQL, strings.Join(args, ", "))
+}
+`, modelName, modelName, SQL, strings.Join(args, ", "))
 	return funcLines, nil
 }
 
@@ -175,17 +177,18 @@ func u(statement *parser.Statement) (string, []string) {
 		}
 		SQL := fmt.Sprintf("update `%s` set %s where %s", statement.TableName.Name, strings.Join(values, ", "), strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Update%sBy%s (db DataSource, s *%s) error {
-	SQL := "%s"
-	ret, err := db.Exec(SQL, %s)
-	if err != nil {
-		return err
-	}
-	_, err = ret.RowsAffected()
-	if err != nil {
-		return err
-	}
-	return nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+    SQL := "%s"
+    ret, err := db.Exec(SQL, %s)
+    if err != nil {
+        return err
+    }
+    _, err = ret.RowsAffected()
+    if err != nil {
+        return err
+    }
+    return nil
+}
+`, modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
 	}
 	return funcLines, nil
 }
@@ -223,7 +226,10 @@ func r(statement *parser.Statement) (string, []string) {
 			nullableDefinitions = append(nullableDefinitions, fmt.Sprintf("var %s %s", strings.Join(names, ", "), v))
 		}
 	}
-	nullableDefinition := strings.Join(nullableDefinitions, "\n")
+	nullableDefinition := strings.Join(nullableDefinitions, "\n    ")
+	if nullableDefinition != "" {
+		nullableDefinition = "\n    " + nullableDefinition
+	}
 	nullableAssignments := make([]string, 0)
 	for _, v := range nullTypesSort {
 		if names, ok := nullable[v]; ok {
@@ -236,12 +242,15 @@ func r(statement *parser.Statement) (string, []string) {
 					nullValue = "Time(" + nullValue + ")"
 				}
 				nullableAssignments = append(nullableAssignments, fmt.Sprintf(`if %s.Valid {
-		ret.%s = %s
-	}`, name, name, nullValue))
+        ret.%s = %s
+    }`, name, name, nullValue))
 			}
 		}
 	}
-	nullableAssignment := strings.Join(nullableAssignments, "\n")
+	nullableAssignment := strings.Join(nullableAssignments, "\n    ")
+	if nullableAssignment != "" {
+		nullableAssignment = "\n    " + nullableAssignment
+	}
 
 	uniqKeyPairs := getUniqKeyPairs(statement)
 	for _, keys := range uniqKeyPairs {
@@ -260,19 +269,18 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
-	SQL := "%s"
-	ret := &%s{}
-	%s
-	err := db.QueryRow(SQL, %s).Scan(%s)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil,err
-		}
-		return nil,nil
-	}
-	%s
-	return ret,nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, nullableDefinition, strings.Join(args, ", "), strings.Join(binds, ", "), nullableAssignment)
+    SQL := "%s"
+    ret := &%s{}%s
+    err := db.QueryRow(SQL, %s).Scan(%s)
+    if err != nil {
+        if err != sql.ErrNoRows {
+            return nil,err
+        }
+        return nil,nil
+    }%s
+    return ret,nil
+}
+`, modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, nullableDefinition, strings.Join(args, ", "), strings.Join(binds, ", "), nullableAssignment)
 	}
 
 	indexKeyPairs := getIndexKeyPairs(statement)
@@ -293,35 +301,34 @@ func r(statement *parser.Statement) (string, []string) {
 		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		SQL2 := fmt.Sprintf("select %s from `%s` where %s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func QueryMany%sBy%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
-	SQL1 := "%s"
-	count := 0
-	err := db.QueryRow(SQL1, %s).Scan(&count)
-	if err != nil {
-		return 0, nil, err
+    SQL1 := "%s"
+    count := 0
+    err := db.QueryRow(SQL1, %s).Scan(&count)
+    if err != nil {
+        return 0, nil, err
+    }
+
+    SQL2 := "%s"
+    rows, err := db.Query(SQL2, %s, (page-1)*size, size)
+    if err != nil {
+        if err != sql.ErrNoRows {
+            return 0, nil, err
+        }
+    }
+    defer rows.Close()
+
+    results := make([]*%s, 0)
+    for rows.Next() {
+        ret := &%s{}%s
+        rows.Scan(%s)%s
+        results = append(results, ret)
+    }
+    return count, results, nil
+}
+`, modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
 	}
 
-	SQL2 := "%s"
-	rows, err := db.Query(SQL2, %s, (page-1)*size, size)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return 0, nil, err
-		}
-	}
-	defer rows.Close()
-
-	results := make([]*%s, 0)
-	for rows.Next() {
-		ret := &%s{}
-		%s
-		rows.Scan(%s)
-		%s
-		results = append(results, ret)
-	}
-	return count, results, nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
-	}
-
-	where := `    where := ""
+	where := `where := ""
     args := make([]interface{}, 0)
     if s != nil {
 `
@@ -339,44 +346,43 @@ func r(statement *parser.Statement) (string, []string) {
 	}
 
 	where += `        where = strings.TrimLeft(where, "and")
-	    where = strings.TrimSpace(where)
+        where = strings.TrimSpace(where)
         if where != "" {
-			where = "where " + where
+            where = "where " + where
         }
     }
-	SQL1 = fmt.Sprintf(SQL1, where)
-	SQL2 = fmt.Sprintf(SQL2, where)`
+    SQL1 = fmt.Sprintf(SQL1, where)
+    SQL2 = fmt.Sprintf(SQL2, where)`
 
 	SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
 	SQL2 := fmt.Sprintf("select %s from `%s` %%s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
 	funcLines += fmt.Sprintf(`func QueryMany%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
-	SQL1 := "%s"
-	SQL2 := "%s"
-	%s
-	count := 0
-	err := db.QueryRow(SQL1, args...).Scan(&count)
-	if err != nil {
-		return 0, nil, err
-	}
-	args = append(args, (page-1)*size, size)
-	rows, err := db.Query(SQL2, args...)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return 0, nil, err
-		}
-	}
-	defer rows.Close()
+    SQL1 := "%s"
+    SQL2 := "%s"
+    %s
+    count := 0
+    err := db.QueryRow(SQL1, args...).Scan(&count)
+    if err != nil {
+        return 0, nil, err
+    }
+    args = append(args, (page-1)*size, size)
+    rows, err := db.Query(SQL2, args...)
+    if err != nil {
+        if err != sql.ErrNoRows {
+            return 0, nil, err
+        }
+    }
+    defer rows.Close()
 
-	results := make([]*%s, 0)
-	for rows.Next() {
-		ret := &%s{}
-		%s
-		rows.Scan(%s)
-		%s
-		results = append(results, ret)
-	}
-	return count, results, nil
-}`+"\n\n", modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
+    results := make([]*%s, 0)
+    for rows.Next() {
+        ret := &%s{}%s
+        rows.Scan(%s)%s
+        results = append(results, ret)
+    }
+    return count, results, nil
+}
+`, modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
 
 	return funcLines, nil
 }
@@ -426,17 +432,18 @@ func d(statement *parser.Statement, logic string) (string, []string) {
 			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		}
 		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
-			SQL := "%s"
-			ret, err := db.Exec(SQL, %s)
-			if err != nil {
-				return err
-			}
-			_, err = ret.RowsAffected()
-			if err != nil {
-				return err
-			}
-			return nil
-		}`+"\n\n", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+    SQL := "%s"
+    ret, err := db.Exec(SQL, %s)
+    if err != nil {
+        return err
+    }
+    _, err = ret.RowsAffected()
+    if err != nil {
+        return err
+    }
+    return nil
+}
+`, modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
 	}
 	return funcLines, nil
 }
