@@ -54,6 +54,14 @@ var (
 		"sql.NullString":  "String",
 		"sql.NullTime":    "Time",
 	}
+	notZeroValueMapping = map[string]string{
+		"bool":    "!%s",
+		"int":     "%s != 0",
+		"int64":   "%s != 0",
+		"float64": "math.Float64bits(%s) != 0",
+		"string":  "%s != \"\"",
+		"Time":    "!time.Time(%s).IsZero()",
+	}
 	nullTypesSort = []string{"sql.NullBool", "sql.NullInt32", "sql.NullInt64", "sql.NullFloat64", "sql.NullString", "sql.NullTime"}
 )
 
@@ -61,7 +69,6 @@ func Generate(pkg string, statements []*parser.Statement, logic string) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
 	importsMap["fmt"] = common.Null
-	importsMap["reflect"] = common.Null
 	importsMap["strings"] = common.Null
 	importsMap["time"] = common.Null
 	functions := make([]string, 0)
@@ -194,6 +201,7 @@ func u(statement *parser.Statement) (string, []string) {
 }
 
 func r(statement *parser.Statement) (string, []string) {
+	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	names := make([]string, 0)
@@ -334,15 +342,19 @@ func r(statement *parser.Statement) (string, []string) {
 `
 	for _, col := range statement.Columns {
 		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+		fieldType := typeMapping[col.Type]
+		if fieldType == "float64" {
+			importMath = true
+		}
 		arg := "s." + fieldName
 		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 			arg = "time.Time(" + arg + ")"
 		}
-		where += fmt.Sprintf(`        if v := reflect.ValueOf(s.%s); !v.IsZero() {
+		where += fmt.Sprintf(`        if %s {
             where += "and `+"`%s`"+` = ? "
             args = append(args, %s)
         }
-`, fieldName, col.ColumnName, arg)
+`, fmt.Sprintf(notZeroValueMapping[fieldType], "s."+fieldName), col.ColumnName, arg)
 	}
 
 	where += `        where = strings.TrimLeft(where, "and")
@@ -384,6 +396,9 @@ func r(statement *parser.Statement) (string, []string) {
 }
 `, modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
 
+	if importMath {
+		return funcLines, []string{"math"}
+	}
 	return funcLines, nil
 }
 
