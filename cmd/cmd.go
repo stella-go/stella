@@ -48,6 +48,8 @@ Usage:
 	i := flageSet.String("i", "", "input sql file")
 	o := flageSet.String("o", "", "output dictionary")
 	f := flageSet.String("f", "", "output file name")
+	m := flageSet.Bool("m", false, "only generate models")
+	logic := flageSet.String("logic", "", "logic delete")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -55,7 +57,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f)
+	generate(*p, *i, *o, *f, *m, *logic)
 }
 
 func readFileWithStdin(input string) string {
@@ -80,20 +82,22 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string) {
+func generate(pkg string, input string, output string, file string, onlymodel bool, logic string) {
 	if file == "" {
 		file = pkg
 	}
-	filename := file + "_auto.go"
 	sql := readFileWithStdin(input)
-
 	statements := parser.Parse(sql)
+
+	filename := file + "_auto.go"
 	content := model.Generate(pkg, statements)
 	writeFileTryFormat(output, filename, content)
 
-	filename = pkg + "_auto_curd.go"
-	content = curd.Generate(pkg, statements)
-	writeFileTryFormat(output, filename, content)
+	if !onlymodel {
+		filename = pkg + "_auto_curd.go"
+		content = curd.Generate(pkg, statements, logic)
+		writeFileTryFormat(output, filename, content)
+	}
 }
 
 // func generateModel(pkg string, input string, output string) {

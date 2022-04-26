@@ -53,6 +53,22 @@ var (
 func (t Time) MarshalJSON() ([]byte, error) {
 	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
 	return []byte(stamp), nil
+}
+
+func (t *Time) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
+	if err != nil {
+		return err
+	}
+	*t = Time(tm)
+	return err
+}
+
+func (t Time) String() string {
+	return time.Time(t).String()
 }`
 )
 
@@ -90,9 +106,6 @@ func (s *Struct) toString() string {
 		line := f.name + ": " + placeHolder
 		formats = append(formats, line)
 		arg := "s." + f.name
-		if f.typ == "Time" {
-			arg = "time.Time(" + arg + ")"
-		}
 		args = append(args, arg)
 	}
 

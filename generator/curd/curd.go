@@ -58,7 +58,7 @@ var (
 	nullTypesSort = []string{"sql.NullBool", "sql.NullInt32", "sql.NullInt64", "sql.NullFloat64", "sql.NullString", "sql.NullTime"}
 )
 
-func Generate(pkg string, statements []*parser.Statement) string {
+func Generate(pkg string, statements []*parser.Statement, logic string) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
 	importsMap["fmt"] = common.Null
@@ -85,7 +85,7 @@ func Generate(pkg string, statements []*parser.Statement) string {
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
-		function, imports = d(statement)
+		function, imports = d(statement, logic)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -201,6 +201,7 @@ func r(statement *parser.Statement) (string, []string) {
 	re := regexp.MustCompile(` *?\(.*\)`)
 	for _, col := range statement.Columns {
 		names = append(names, "`"+col.ColumnName.Name+"`")
+		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 		if !col.NotNull {
 			colType := re.ReplaceAllString(col.Type, "")
 			typ, ok := typeMapping[colType]
@@ -209,24 +210,24 @@ func r(statement *parser.Statement) (string, []string) {
 			}
 			nullType := nullTypesMapping[typ]
 			if list, ok := nullable[nullType]; ok {
-				nullable[nullType] = append(list, generator.FirstUpperCamelCase(col.ColumnName.Name))
+				nullable[nullType] = append(list, fieldName)
 			} else {
-				nullable[nullType] = []string{generator.FirstUpperCamelCase(col.ColumnName.Name)}
+				nullable[nullType] = []string{fieldName}
 			}
-			binds = append(binds, "&"+generator.FirstUpperCamelCase(col.ColumnName.Name))
+			binds = append(binds, "&"+fieldName)
 		} else {
-			binds = append(binds, "&ret."+generator.FirstUpperCamelCase(col.ColumnName.Name))
+			binds = append(binds, "&ret."+fieldName)
 		}
 	}
 
-	nullableDefinition := ""
+	nullableDefinitions := make([]string, 0)
 	for _, v := range nullTypesSort {
 		if names, ok := nullable[v]; ok {
-			nullableDefinition += fmt.Sprintf("var %s %s\n", strings.Join(names, ", "), v)
+			nullableDefinitions = append(nullableDefinitions, fmt.Sprintf("var %s %s", strings.Join(names, ", "), v))
 		}
 	}
-	nullableDefinition = nullableDefinition[:len(nullableDefinition)-1]
-	nullableAssignment := ""
+	nullableDefinition := strings.Join(nullableDefinitions, "\n")
+	nullableAssignments := make([]string, 0)
 	for _, v := range nullTypesSort {
 		if names, ok := nullable[v]; ok {
 			for _, name := range names {
@@ -234,13 +235,16 @@ func r(statement *parser.Statement) (string, []string) {
 				if v == "sql.NullInt32" {
 					nullValue = "int(" + nullValue + ")"
 				}
-				nullableAssignment += fmt.Sprintf(`if %s.Valid {
+				if v == "sql.NullTime" {
+					nullValue = "Time(" + nullValue + ")"
+				}
+				nullableAssignments = append(nullableAssignments, fmt.Sprintf(`if %s.Valid {
 		ret.%s = %s
-	}`+"\n", name, name, nullValue)
+	}`, name, name, nullValue))
 			}
 		}
 	}
-	nullableAssignment = nullableAssignment[:len(nullableAssignment)-1]
+	nullableAssignment := strings.Join(nullableAssignments, "\n")
 
 	uniqKeyPairs := getUniqKeyPairs(statement)
 	for _, keys := range uniqKeyPairs {
@@ -249,12 +253,13 @@ func r(statement *parser.Statement) (string, []string) {
 		args := make([]string, 0)
 		for _, col := range keys {
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
-			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
 			}
 			args = append(args, arg)
-			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
+			fields = append(fields, fieldName)
 		}
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
@@ -280,12 +285,13 @@ func r(statement *parser.Statement) (string, []string) {
 		args := make([]string, 0)
 		for _, col := range keys {
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
-			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
 			}
 			args = append(args, arg)
-			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
+			fields = append(fields, fieldName)
 		}
 		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		SQL2 := fmt.Sprintf("select %s from `%s` where %s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "))
@@ -323,7 +329,8 @@ func r(statement *parser.Statement) (string, []string) {
     if s != nil {
 `
 	for _, col := range statement.Columns {
-		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+		arg := "s." + fieldName
 		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 			arg = "time.Time(" + arg + ")"
 		}
@@ -331,7 +338,7 @@ func r(statement *parser.Statement) (string, []string) {
             where += "and `+"`%s`"+` = ? "
             args = append(args, %s)
         }
-`, generator.FirstUpperCamelCase(col.ColumnName.Name), col.ColumnName, arg)
+`, fieldName, col.ColumnName, arg)
 	}
 
 	where += `        where = strings.TrimLeft(where, "and")
@@ -377,7 +384,27 @@ func r(statement *parser.Statement) (string, []string) {
 	return funcLines, nil
 }
 
-func d(statement *parser.Statement) (string, []string) {
+func d(statement *parser.Statement, logic string) (string, []string) {
+	var logicDelete bool
+	var logicCol string
+	var logicValue string
+	if logic != "" {
+		if index := strings.Index(logic, "="); index != -1 {
+			logicCol, logicValue = logic[:index], logic[index+1:]
+			if (strings.HasPrefix(logicValue, "\"") && strings.HasSuffix(logicValue, "\"")) || (strings.HasPrefix(logicValue, "'") && strings.HasSuffix(logicValue, "'")) {
+				logicValue = logicValue[1 : len(logicValue)-1]
+			}
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name != logicCol {
+					continue
+				}
+				if c.Type != "TINYINT" && c.Type != "INT" && c.Type != "BIGINT" && c.Type != "FLOAT" {
+					logicValue = `\"` + logicValue + `\"`
+				}
+				logicDelete = true
+			}
+		}
+	}
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	uniqKeyPairs := getUniqKeyPairs(statement)
@@ -386,27 +413,33 @@ func d(statement *parser.Statement) (string, []string) {
 		conditions := make([]string, 0)
 		args := make([]string, 0)
 		for _, col := range keys {
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
-			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
 			}
 			args = append(args, arg)
-			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
+			fields = append(fields, fieldName)
 		}
-		SQL := fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
+		SQL := ""
+		if logicDelete {
+			SQL = fmt.Sprintf("update `%s` set `%s` = %s where %s", statement.TableName, logicCol, logicValue, strings.Join(conditions, " and "))
+		} else {
+			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
+		}
 		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
-	SQL := "%s"
-	ret, err := db.Exec(SQL, %s)
-	if err != nil {
-		return err
-	}
-	_, err = ret.RowsAffected()
-	if err != nil {
-		return err
-	}
-	return nil
-}`+"\n\n", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+			SQL := "%s"
+			ret, err := db.Exec(SQL, %s)
+			if err != nil {
+				return err
+			}
+			_, err = ret.RowsAffected()
+			if err != nil {
+				return err
+			}
+			return nil
+		}`+"\n\n", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
 	}
 	return funcLines, nil
 }
