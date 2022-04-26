@@ -23,13 +23,18 @@ Conversion of SQL into structures and database operation templates
 
 ```bash
 Usage: 
-        stella generate -p model -i init.sql -o model
+        stella generate -p model -i init.sql -o model -f model
 
   -f string
-    	output file name
+        output file name
   -h    print help info
+  -help
+        print help info
   -i string
         input sql file
+  -logic string
+        logic delete
+  -m    only generate models
   -o string
         output dictionary
   -p string
@@ -51,12 +56,12 @@ CREATE TABLE `tb_students` (
 ) ENGINE = INNODB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'STUDENT RECORDS';
 ```
 
-Run command `stella generate -p model -i init.sql -o model`, Will generate two files `model.go` and `model_curd.go`
+Run command `stella generate -p model -i init.sql -o model`, Will generate two files `model_auto.go` and `model_curd_auto.go`
 ```go
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2021/08/10.
+ * Auto Generate by github.com/stella-go/stella on 2022/04/26.
  */
 
 import (
@@ -64,14 +69,37 @@ import (
 	"time"
 )
 
+type Time time.Time
+
+func (t Time) MarshalJSON() ([]byte, error) {
+	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
+	return []byte(stamp), nil
+}
+
+func (t *Time) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
+	if err != nil {
+		return err
+	}
+	*t = Time(tm)
+	return err
+}
+
+func (t Time) String() string {
+	return time.Time(t).String()
+}
+
 type TbStudents struct {
-	Id         int       `json:"id"`
-	No         string    `json:"no"`
-	Name       string    `json:"name"`
-	Age        int       `json:"age"`
-	Gender     string    `json:"gender"`
-	CreateTime time.Time `json:"create_time"`
-	UpdateTime time.Time `json:"update_time"`
+	Id         int    `json:"id"`
+	No         string `json:"no"`
+	Name       string `json:"name"`
+	Age        int    `json:"age"`
+	Gender     string `json:"gender"`
+	CreateTime Time   `json:"create_time"`
+	UpdateTime Time   `json:"update_time"`
 }
 
 func (s *TbStudents) String() string {
@@ -82,16 +110,26 @@ func (s *TbStudents) String() string {
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2021/08/10.
+ * Auto Generate by github.com/stella-go/stella on 2022/04/26.
  */
 
 import (
 	"database/sql"
+	"fmt"
+	"reflect"
+	"strings"
+	"time"
 )
+
+type DataSource interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+}
 
 // ==================== TbStudents ====================
 
-func CreateTbStudents(db *sql.DB, s *TbStudents) error {
+func CreateTbStudents(db DataSource, s *TbStudents) error {
 	SQL := "insert into `tb_students` (`no`, `name`, `age`, `gender`) values (?, ?, ?, ?)"
 	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender)
 	if err != nil {
@@ -104,7 +142,7 @@ func CreateTbStudents(db *sql.DB, s *TbStudents) error {
 	return nil
 }
 
-func UpdateTbStudents(db *sql.DB, s *TbStudents) error {
+func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
 	SQL := "update `tb_students` set `no` = ?, `name` = ?, `age` = ?, `gender` = ? where `id` = ?"
 	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender, s.Id)
 	if err != nil {
@@ -117,26 +155,82 @@ func UpdateTbStudents(db *sql.DB, s *TbStudents) error {
 	return nil
 }
 
-func QueryTbStudents(db *sql.DB, s *TbStudents) (*TbStudents, error) {
+func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
 	SQL := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` where `id` = ?"
 	ret := &TbStudents{}
-	err := db.QueryRow(SQL, s.Id).Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
+	var Age sql.NullInt32
+	var No, Name, Gender sql.NullString
+	err := db.QueryRow(SQL, s.Id).Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
 	if err != nil {
-		return nil, err
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if Age.Valid {
+		ret.Age = int(Age.Int32)
+	}
+	if No.Valid {
+		ret.No = No.String
+	}
+	if Name.Valid {
+		ret.Name = Name.String
+	}
+	if Gender.Valid {
+		ret.Gender = Gender.String
 	}
 	return ret, nil
 }
 
-func QueryManyTbStudents(db *sql.DB, page int, size int) (int, []*TbStudents, error) {
-	SQL1 := "select count(*) from `tb_students`"
+func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int, []*TbStudents, error) {
+	SQL1 := "select count(*) from `tb_students` %s"
+	SQL2 := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` %s limit ?, ?"
+	where := ""
+	args := make([]interface{}, 0)
+	if s != nil {
+		if v := reflect.ValueOf(s.Id); !v.IsZero() {
+			where += "and `id` = ? "
+			args = append(args, s.Id)
+		}
+		if v := reflect.ValueOf(s.No); !v.IsZero() {
+			where += "and `no` = ? "
+			args = append(args, s.No)
+		}
+		if v := reflect.ValueOf(s.Name); !v.IsZero() {
+			where += "and `name` = ? "
+			args = append(args, s.Name)
+		}
+		if v := reflect.ValueOf(s.Age); !v.IsZero() {
+			where += "and `age` = ? "
+			args = append(args, s.Age)
+		}
+		if v := reflect.ValueOf(s.Gender); !v.IsZero() {
+			where += "and `gender` = ? "
+			args = append(args, s.Gender)
+		}
+		if v := reflect.ValueOf(s.CreateTime); !v.IsZero() {
+			where += "and `create_time` = ? "
+			args = append(args, time.Time(s.CreateTime))
+		}
+		if v := reflect.ValueOf(s.UpdateTime); !v.IsZero() {
+			where += "and `update_time` = ? "
+			args = append(args, time.Time(s.UpdateTime))
+		}
+		where = strings.TrimLeft(where, "and")
+		where = strings.TrimSpace(where)
+		if where != "" {
+			where = "where " + where
+		}
+	}
+	SQL1 = fmt.Sprintf(SQL1, where)
+	SQL2 = fmt.Sprintf(SQL2, where)
 	count := 0
-	err := db.QueryRow(SQL1).Scan(&count)
+	err := db.QueryRow(SQL1, args...).Scan(&count)
 	if err != nil {
 		return 0, nil, err
 	}
-
-	SQL2 := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` limit ?, ?"
-	rows, err := db.Query(SQL2, (page-1)*size, size)
+	args = append(args, (page-1)*size, size)
+	rows, err := db.Query(SQL2, args...)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return 0, nil, err
@@ -147,13 +241,27 @@ func QueryManyTbStudents(db *sql.DB, page int, size int) (int, []*TbStudents, er
 	results := make([]*TbStudents, 0)
 	for rows.Next() {
 		ret := &TbStudents{}
-		rows.Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
+		var Age sql.NullInt32
+		var No, Name, Gender sql.NullString
+		rows.Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
+		if Age.Valid {
+			ret.Age = int(Age.Int32)
+		}
+		if No.Valid {
+			ret.No = No.String
+		}
+		if Name.Valid {
+			ret.Name = Name.String
+		}
+		if Gender.Valid {
+			ret.Gender = Gender.String
+		}
 		results = append(results, ret)
 	}
 	return count, results, nil
 }
 
-func DeleteTbStudents(db *sql.DB, s *TbStudents) error {
+func DeleteTbStudentsById(db DataSource, s *TbStudents) error {
 	SQL := "delete from `tb_students` where `id` = ?"
 	ret, err := db.Exec(SQL, s.Id)
 	if err != nil {
@@ -196,15 +304,18 @@ Usage:
 
         stella line, By default it is equivalent to "stella line ."
   -h    print help info
+  -help
+        print help info
   -ignore string
         ignore file patterns
   -include string
         include file patterns (default "*.*")
+  -s    use file short name
 ```
 
 For example,
 ```go
-//go:generate stella line -include="*.go" .
+//go:generate stella line -include=*.go .
 package main
 
 import (
@@ -218,7 +329,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line -include="*.go" .
+//go:generate stella line -include=*.go .
 package main
 
 import (
@@ -232,7 +343,7 @@ func main() {
 
 And then insert an new line.
 ```go
-//go:generate stella line -include="*.go" .
+//go:generate stella line -include=*.go .
 package main
 
 import (
@@ -247,7 +358,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line -include="*.go" .
+//go:generate stella line -include=*.go .
 package main
 
 import (
