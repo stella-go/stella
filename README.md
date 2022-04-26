@@ -75,7 +75,6 @@ func (t Time) MarshalJSON() ([]byte, error) {
 	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
 	return []byte(stamp), nil
 }
-
 func (t *Time) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
@@ -87,7 +86,6 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	*t = Time(tm)
 	return err
 }
-
 func (t Time) String() string {
 	return time.Time(t).String()
 }
@@ -116,7 +114,6 @@ package model
 import (
 	"database/sql"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -128,7 +125,6 @@ type DataSource interface {
 }
 
 // ==================== TbStudents ====================
-
 func CreateTbStudents(db DataSource, s *TbStudents) error {
 	SQL := "insert into `tb_students` (`no`, `name`, `age`, `gender`) values (?, ?, ?, ?)"
 	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender)
@@ -181,38 +177,37 @@ func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
 	}
 	return ret, nil
 }
-
 func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int, []*TbStudents, error) {
 	SQL1 := "select count(*) from `tb_students` %s"
 	SQL2 := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` %s limit ?, ?"
 	where := ""
 	args := make([]interface{}, 0)
 	if s != nil {
-		if v := reflect.ValueOf(s.Id); !v.IsZero() {
+		if s.Id != 0 {
 			where += "and `id` = ? "
 			args = append(args, s.Id)
 		}
-		if v := reflect.ValueOf(s.No); !v.IsZero() {
+		if s.No != "" {
 			where += "and `no` = ? "
 			args = append(args, s.No)
 		}
-		if v := reflect.ValueOf(s.Name); !v.IsZero() {
+		if s.Name != "" {
 			where += "and `name` = ? "
 			args = append(args, s.Name)
 		}
-		if v := reflect.ValueOf(s.Age); !v.IsZero() {
+		if s.Age != 0 {
 			where += "and `age` = ? "
 			args = append(args, s.Age)
 		}
-		if v := reflect.ValueOf(s.Gender); !v.IsZero() {
+		if s.Gender != "" {
 			where += "and `gender` = ? "
 			args = append(args, s.Gender)
 		}
-		if v := reflect.ValueOf(s.CreateTime); !v.IsZero() {
+		if !time.Time(s.CreateTime).IsZero() {
 			where += "and `create_time` = ? "
 			args = append(args, time.Time(s.CreateTime))
 		}
-		if v := reflect.ValueOf(s.UpdateTime); !v.IsZero() {
+		if !time.Time(s.UpdateTime).IsZero() {
 			where += "and `update_time` = ? "
 			args = append(args, time.Time(s.UpdateTime))
 		}
