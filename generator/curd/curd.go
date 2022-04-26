@@ -16,7 +16,6 @@ package curd
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -198,13 +197,11 @@ func r(statement *parser.Statement) (string, []string) {
 	nullable := make(map[string][]string)
 	binds := make([]string, 0)
 
-	re := regexp.MustCompile(` *?\(.*\)`)
 	for _, col := range statement.Columns {
 		names = append(names, "`"+col.ColumnName.Name+"`")
 		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 		if !col.NotNull {
-			colType := re.ReplaceAllString(col.Type, "")
-			typ, ok := typeMapping[colType]
+			typ, ok := typeMapping[col.Type]
 			if !ok {
 				typ = typeMapping["default"]
 			}

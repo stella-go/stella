@@ -101,7 +101,7 @@ func (v *MysqlVisitor) VisitColumnDeclaration(ctx *mysql.ColumnDeclarationContex
 }
 
 func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext) interface{} {
-	column := &ColumnDefinition{Type: ctx.DataType().GetText()}
+	column := &ColumnDefinition{Type: ctx.DataType().Accept(v).(string)}
 	for _, constraint := range ctx.AllColumnConstraint() {
 		obj := constraint.Accept(v)
 		switch obj.(type) {
@@ -118,6 +118,41 @@ func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext)
 		}
 	}
 	return column
+}
+func (v *MysqlVisitor) VisitStringDataType(ctx *mysql.StringDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitNationalStringDataType(ctx *mysql.NationalStringDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitNationalVaryingStringDataType(ctx *mysql.NationalVaryingStringDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitDimensionDataType(ctx *mysql.DimensionDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitSimpleDataType(ctx *mysql.SimpleDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitCollectionDataType(ctx *mysql.CollectionDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitSpatialDataType(ctx *mysql.SpatialDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitLongVarcharDataType(ctx *mysql.LongVarcharDataTypeContext) interface{} {
+	return ctx.GetTypeName().GetText()
+}
+
+func (v *MysqlVisitor) VisitLongVarbinaryDataType(ctx *mysql.LongVarbinaryDataTypeContext) interface{} {
+	return "LONG VARBINARY"
 }
 
 func (v *MysqlVisitor) VisitAutoIncrementColumnConstraint(ctx *mysql.AutoIncrementColumnConstraintContext) interface{} {

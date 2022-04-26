@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -119,10 +118,8 @@ func Generate(pkg string, statements []*parser.Statement) string {
 	defineTime := false
 	for _, statement := range statements {
 		fields := make([]*Field, 0)
-		re := regexp.MustCompile(` *?\(.*\)`)
 		for _, col := range statement.Columns {
-			colType := re.ReplaceAllString(col.Type, "")
-			typ, ok := typeMapping[colType]
+			typ, ok := typeMapping[col.Type]
 			if !ok {
 				typ = typeMapping["default"]
 			}
