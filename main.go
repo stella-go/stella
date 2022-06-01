@@ -36,8 +36,7 @@ func main() {
 		cmd.Create()
 	case "line":
 		cmd.Line()
-	case "-v":
-	case "-version":
+	case "-v", "-version":
 		fmt.Println(version.VERSION)
 	default:
 		usage()
