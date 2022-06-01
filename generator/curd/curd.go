@@ -63,6 +63,12 @@ var (
 		"Time":    "!time.Time(%s).IsZero()",
 	}
 	nullTypesSort = []string{"sql.NullBool", "sql.NullInt32", "sql.NullInt64", "sql.NullFloat64", "sql.NullString", "sql.NullTime"}
+	unDeleteMap   = map[interface{}]interface{}{
+		`\"0\"`: `\"1\"`,
+		`\"1\"`: `\"0\"`,
+		`1`:     `0`,
+		`0`:     `1`,
+	}
 )
 
 func Generate(pkg string, statements []*parser.Statement, logic string) string {
@@ -496,7 +502,7 @@ func d(statement *parser.Statement, logic string) (string, []string) {
 		} else {
 			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		}
-		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
+		funcTemplate := `func %sDelete%sBy%s (db DataSource, s *%s) error {
     if s == nil {
         return fmt.Errorf("pointer can not be nil")
     }
@@ -511,7 +517,15 @@ func d(statement *parser.Statement, logic string) (string, []string) {
     }
     return nil
 }
-`, modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+`
+		funcLines += fmt.Sprintf(funcTemplate, "", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+		if logicDelete {
+			if unDeleteValue, ok := unDeleteMap[logicValue]; ok {
+				UNSQL := fmt.Sprintf("update `%s` set `%s` = %s where %s", statement.TableName, logicCol, unDeleteValue, strings.Join(conditions, " and "))
+				funcLines += fmt.Sprintf(funcTemplate, "Un", modelName, strings.Join(fields, ""), modelName, UNSQL, strings.Join(args, ", "))
+			}
+		}
+
 	}
 	return funcLines, nil
 }
