@@ -110,8 +110,7 @@ func Generate(pkg string, statements []*parser.Statement, logic string) string {
     Exec(query string, args ...interface{}) (sql.Result, error)
     QueryRow(query string, args ...interface{}) *sql.Row
     Query(query string, args ...interface{}) (*sql.Rows, error)
-}
-`
+}`
 	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)\n\n%s\n\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n"))
 }
 
@@ -134,6 +133,9 @@ func c(statement *parser.Statement) (string, []string) {
 	}
 	SQL := fmt.Sprintf("insert into `%s` (%s) values (%s)", statement.TableName.Name, strings.Join(columnNames, ", "), strings.Join(placeHolder, ", "))
 	funcLines := fmt.Sprintf(`func Create%s (db DataSource, s *%s) error {
+    if s == nil {
+        return fmt.Errorf("pointer can not be nil")
+    }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
@@ -150,13 +152,15 @@ func c(statement *parser.Statement) (string, []string) {
 }
 
 func u(statement *parser.Statement) (string, []string) {
+	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	uniqKeyPairs := getUniqKeyPairs(statement)
 	for _, keys := range uniqKeyPairs {
 		args := make([]string, 0)
-		values := make([]string, 0)
-
+		set := `set := ""
+    args := make([]interface{}, 0)
+    `
 		for _, col := range statement.Columns {
 			if col.AutoIncrement || col.CurrentTimestamp {
 				continue
@@ -164,13 +168,27 @@ func u(statement *parser.Statement) (string, []string) {
 			if contains(keys, col) {
 				continue
 			}
-			values = append(values, "`"+col.ColumnName.Name+"` = ?")
-			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+			fieldType := typeMapping[col.Type]
+			if fieldType == "float64" {
+				importMath = true
+			}
+			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
 			}
-			args = append(args, arg)
+			set += fmt.Sprintf(`if %s {
+        set += ", `+"`%s`"+` = ? "
+        args = append(args, %s)
+    }
+    `, fmt.Sprintf(notZeroValueMapping[fieldType], "s."+fieldName), col.ColumnName, arg)
 		}
+		set += `set = strings.TrimLeft(set, ",")
+    set = strings.TrimSpace(set)
+    if set == "" {
+        return fmt.Errorf("all field is zero")
+    }
+    SQL = fmt.Sprintf(SQL, set)`
 		fields := make([]string, 0)
 		conditions := make([]string, 0)
 		for _, col := range keys {
@@ -182,10 +200,15 @@ func u(statement *parser.Statement) (string, []string) {
 			args = append(args, arg)
 			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
-		SQL := fmt.Sprintf("update `%s` set %s where %s", statement.TableName.Name, strings.Join(values, ", "), strings.Join(conditions, " and "))
+		SQL := fmt.Sprintf("update `%s` set %%s where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Update%sBy%s (db DataSource, s *%s) error {
+    if s == nil {
+        return fmt.Errorf("pointer can not be nil")
+    }
     SQL := "%s"
-    ret, err := db.Exec(SQL, %s)
+    %s
+	args = append(args, %s)
+    ret, err := db.Exec(SQL, args...)
     if err != nil {
         return err
     }
@@ -195,7 +218,10 @@ func u(statement *parser.Statement) (string, []string) {
     }
     return nil
 }
-`, modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
+`, modelName, strings.Join(fields, ""), modelName, SQL, set, strings.Join(args, ", "))
+	}
+	if importMath {
+		return funcLines, []string{"math"}
 	}
 	return funcLines, nil
 }
@@ -231,12 +257,12 @@ func r(statement *parser.Statement) (string, []string) {
 	nullableDefinitions := make([]string, 0)
 	for _, v := range nullTypesSort {
 		if names, ok := nullable[v]; ok {
-			nullableDefinitions = append(nullableDefinitions, fmt.Sprintf("var %s %s", strings.Join(names, ", "), v))
+			nullableDefinitions = append(nullableDefinitions, fmt.Sprintf("        var %s %s", strings.Join(names, ", "), v))
 		}
 	}
-	nullableDefinition := strings.Join(nullableDefinitions, "\n    ")
+	nullableDefinition := strings.Join(nullableDefinitions, "\n")
 	if nullableDefinition != "" {
-		nullableDefinition = "\n    " + nullableDefinition
+		nullableDefinition = "\n" + nullableDefinition
 	}
 	nullableAssignments := make([]string, 0)
 	for _, v := range nullTypesSort {
@@ -249,9 +275,9 @@ func r(statement *parser.Statement) (string, []string) {
 				if v == "sql.NullTime" {
 					nullValue = "Time(" + nullValue + ")"
 				}
-				nullableAssignments = append(nullableAssignments, fmt.Sprintf(`if %s.Valid {
-        ret.%s = %s
-    }`, name, name, nullValue))
+				nullableAssignments = append(nullableAssignments, fmt.Sprintf(`    if %s.Valid {
+            ret.%s = %s
+        }`, name, name, nullValue))
 			}
 		}
 	}
@@ -277,16 +303,19 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Query%sBy%s (db DataSource, s *%s) (*%s, error) {
+    if s == nil {
+        return nil, fmt.Errorf("pointer can not be nil")
+    }
     SQL := "%s"
     ret := &%s{}%s
     err := db.QueryRow(SQL, %s).Scan(%s)
     if err != nil {
         if err != sql.ErrNoRows {
-            return nil,err
+            return nil, err
         }
-        return nil,nil
+        return nil, nil
     }%s
-    return ret,nil
+    return ret, nil
 }
 `, modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, nullableDefinition, strings.Join(args, ", "), strings.Join(binds, ", "), nullableAssignment)
 	}
@@ -309,6 +338,15 @@ func r(statement *parser.Statement) (string, []string) {
 		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		SQL2 := fmt.Sprintf("select %s from `%s` where %s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func QueryMany%sBy%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
+    if s == nil {
+        return 0, nil, fmt.Errorf("pointer can not be nil")
+    }
+    if page <= 0 {
+        page = 1
+    }
+    if size <= 0 {
+        size = 10
+    }
     SQL1 := "%s"
     count := 0
     err := db.QueryRow(SQL1, %s).Scan(&count)
@@ -328,7 +366,10 @@ func r(statement *parser.Statement) (string, []string) {
     results := make([]*%s, 0)
     for rows.Next() {
         ret := &%s{}%s
-        rows.Scan(%s)%s
+        err = rows.Scan(%s)
+        if err != nil {
+            return 0, nil, err
+        }%s
         results = append(results, ret)
     }
     return count, results, nil
@@ -369,6 +410,12 @@ func r(statement *parser.Statement) (string, []string) {
 	SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
 	SQL2 := fmt.Sprintf("select %s from `%s` %%s limit ?, ?", strings.Join(names, ", "), statement.TableName.Name)
 	funcLines += fmt.Sprintf(`func QueryMany%s (db DataSource, s *%s, page int, size int) (int, []*%s, error) {
+    if page <= 0 {
+        page = 1
+    }
+    if size <= 0 {
+        size = 10
+    }
     SQL1 := "%s"
     SQL2 := "%s"
     %s
@@ -389,7 +436,10 @@ func r(statement *parser.Statement) (string, []string) {
     results := make([]*%s, 0)
     for rows.Next() {
         ret := &%s{}%s
-        rows.Scan(%s)%s
+        err = rows.Scan(%s)
+        if err != nil {
+            return 0, nil, err
+        }%s
         results = append(results, ret)
     }
     return count, results, nil
@@ -447,6 +497,9 @@ func d(statement *parser.Statement, logic string) (string, []string) {
 			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		}
 		funcLines += fmt.Sprintf(`func Delete%sBy%s (db DataSource, s *%s) error {
+    if s == nil {
+        return fmt.Errorf("pointer can not be nil")
+    }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
