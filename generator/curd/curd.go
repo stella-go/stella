@@ -26,7 +26,7 @@ import (
 
 var (
 	typeMapping = map[string]string{
-		"TINYINT":   "bool",
+		"TINYINT":   "int",
 		"INT":       "int",
 		"BIGINT":    "int64",
 		"FLOAT":     "float64",
