@@ -109,7 +109,7 @@ func (s *Struct) toString() string {
 	return "func (s *" + s.name + ") String() string {\n\treturn fmt.Sprintf(\"" + s.name + "{" + strings.Join(formats, ", ") + "}\", " + strings.Join(args, ", ") + ")\n}\n"
 }
 
-func Generate(pkg string, statements []*parser.Statement) string {
+func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["fmt"] = common.Null
 	structs := make([]string, 0)
@@ -146,5 +146,9 @@ func Generate(pkg string, statements []*parser.Statement) string {
 		}
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
-	return fmt.Sprintf("package %s\n\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n\nimport (\n%s\n)%s\n%s", pkg, time.Now().Format("2006/01/02"), strings.Join(importsLines, "\n"), t, strings.Join(structs, "\n"))
+	bannerS := fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
+	if !banner {
+		bannerS = ""
+	}
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n%s\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), t, strings.Join(structs, "\n"))
 }

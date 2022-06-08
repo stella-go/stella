@@ -46,6 +46,6 @@ create table tb_dept2(
 `
 
 	s := parser.Parse(sql)
-	file := Generate("model", s)
+	file := Generate("model", s, true)
 	t.Log(file)
 }

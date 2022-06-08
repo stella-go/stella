@@ -48,8 +48,10 @@ Usage:
 	i := flageSet.String("i", "", "input sql file")
 	o := flageSet.String("o", "", "output dictionary")
 	f := flageSet.String("f", "", "output file name")
+	banner := flageSet.Bool("banner", true, "output banner")
 	m := flageSet.Bool("m", false, "only generate models")
 	logic := flageSet.String("logic", "", "logic delete")
+	desc := flageSet.String("desc", "", "reverse order by")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -57,7 +59,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f, *m, *logic)
+	generate(*p, *i, *o, *f, *banner, *m, *logic, *desc)
 }
 
 func readFileWithStdin(input string) string {
@@ -82,7 +84,7 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string, onlymodel bool, logic string) {
+func generate(pkg string, input string, output string, file string, banner bool, onlymodel bool, logic string, desc string) {
 	if file == "" {
 		file = pkg
 	}
@@ -90,12 +92,12 @@ func generate(pkg string, input string, output string, file string, onlymodel bo
 	statements := parser.Parse(sql)
 
 	filename := file + "_auto.go"
-	content := model.Generate(pkg, statements)
+	content := model.Generate(pkg, statements, banner)
 	writeFileTryFormat(output, filename, content)
 
 	if !onlymodel {
 		filename = pkg + "_auto_curd.go"
-		content = curd.Generate(pkg, statements, logic)
+		content = curd.Generate(pkg, statements, banner, logic, desc)
 		writeFileTryFormat(output, filename, content)
 	}
 }
