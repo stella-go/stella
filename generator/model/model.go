@@ -57,8 +57,13 @@ func (t *Time) UnmarshalJSON(data []byte) error {
     if string(data) == "null" {
         return nil
     }
-    tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
+    tm, err := time.ParseInLocation("\"2006-01-02 15:04:05\"", string(data), time.Local)
     if err != nil {
+        tm, err := time.ParseInLocation("\"2006-01-02\"", string(data), time.Local)
+        if err != nil {
+            return err
+        }
+        *t = Time(tm)
         return err
     }
     *t = Time(tm)
