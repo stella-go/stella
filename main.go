@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate ./.statik -src=./templates -f -include=*.*
+//go:generate ./.statik -src=./templates -f -include=*
 package main
 
 import (
