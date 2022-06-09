@@ -44,7 +44,7 @@ Usage:
   -p string
         package name (default "model")
   -round string
-        round time: s, ms, μs
+        round time [s/ms/μs]
 ```
 
 For example,
@@ -67,7 +67,7 @@ Run command `stella generate -p model -i init.sql -o model`, Will generate two f
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2022/04/26.
+ * Auto Generate by github.com/stella-go/stella on 2022/06/10.
  */
 
 import (
@@ -85,8 +85,13 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
 	}
-	tm, err := time.Parse("\"2006-01-02 15:04:05\"", string(data))
+	tm, err := time.ParseInLocation("\"2006-01-02 15:04:05\"", string(data), time.Local)
 	if err != nil {
+		tm, err := time.ParseInLocation("\"2006-01-02\"", string(data), time.Local)
+		if err != nil {
+			return err
+		}
+		*t = Time(tm)
 		return err
 	}
 	*t = Time(tm)
@@ -114,7 +119,7 @@ func (s *TbStudents) String() string {
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2022/04/26.
+ * Auto Generate by github.com/stella-go/stella on 2022/06/10.
  */
 
 import (
@@ -132,6 +137,9 @@ type DataSource interface {
 
 // ==================== TbStudents ====================
 func CreateTbStudents(db DataSource, s *TbStudents) error {
+	if s == nil {
+		return fmt.Errorf("pointer can not be nil")
+	}
 	SQL := "insert into `tb_students` (`no`, `name`, `age`, `gender`) values (?, ?, ?, ?)"
 	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender)
 	if err != nil {
@@ -145,8 +153,36 @@ func CreateTbStudents(db DataSource, s *TbStudents) error {
 }
 
 func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
-	SQL := "update `tb_students` set `no` = ?, `name` = ?, `age` = ?, `gender` = ? where `id` = ?"
-	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender, s.Id)
+	if s == nil {
+		return fmt.Errorf("pointer can not be nil")
+	}
+	SQL := "update `tb_students` set %s where `id` = ?"
+	set := ""
+	args := make([]interface{}, 0)
+	if s.No != "" {
+		set += ", `no` = ? "
+		args = append(args, s.No)
+	}
+	if s.Name != "" {
+		set += ", `name` = ? "
+		args = append(args, s.Name)
+	}
+	if s.Age != 0 {
+		set += ", `age` = ? "
+		args = append(args, s.Age)
+	}
+	if s.Gender != "" {
+		set += ", `gender` = ? "
+		args = append(args, s.Gender)
+	}
+	set = strings.TrimLeft(set, ",")
+	set = strings.TrimSpace(set)
+	if set == "" {
+		return fmt.Errorf("all field is zero")
+	}
+	SQL = fmt.Sprintf(SQL, set)
+	args = append(args, s.Id)
+	ret, err := db.Exec(SQL, args...)
 	if err != nil {
 		return err
 	}
@@ -158,6 +194,9 @@ func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
 }
 
 func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
+	if s == nil {
+		return nil, fmt.Errorf("pointer can not be nil")
+	}
 	SQL := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` where `id` = ?"
 	ret := &TbStudents{}
 	var Age sql.NullInt32
@@ -184,6 +223,12 @@ func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
 	return ret, nil
 }
 func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int, []*TbStudents, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 10
+	}
 	SQL1 := "select count(*) from `tb_students` %s"
 	SQL2 := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` %s limit ?, ?"
 	where := ""
@@ -244,7 +289,10 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 		ret := &TbStudents{}
 		var Age sql.NullInt32
 		var No, Name, Gender sql.NullString
-		rows.Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
+		err = rows.Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
+		if err != nil {
+			return 0, nil, err
+		}
 		if Age.Valid {
 			ret.Age = int(Age.Int32)
 		}
@@ -263,6 +311,9 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 }
 
 func DeleteTbStudentsById(db DataSource, s *TbStudents) error {
+	if s == nil {
+		return fmt.Errorf("pointer can not be nil")
+	}
 	SQL := "delete from `tb_students` where `id` = ?"
 	ret, err := db.Exec(SQL, s.Id)
 	if err != nil {
@@ -286,8 +337,10 @@ Usage:
         stella create -n my-project
 
   -h    print help info
+  -help
+        print help info
   -l string
-        projcet language [go/java/node] (default "go")
+        projcet language (default "go")
   -n string
         project name (default "demo")
   -o string
@@ -316,7 +369,7 @@ Usage:
 
 For example,
 ```go
-//go:generate stella line -include=*.go .
+//go:generate stella line -include=*.go -s .
 package main
 
 import (
@@ -330,7 +383,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line -include=*.go .
+//go:generate stella line -include=*.go -s .
 package main
 
 import (
@@ -344,7 +397,7 @@ func main() {
 
 And then insert an new line.
 ```go
-//go:generate stella line -include=*.go .
+//go:generate stella line -include=*.go -s .
 package main
 
 import (
@@ -359,7 +412,7 @@ func main() {
 
 Run command `go generate`
 ```go
-//go:generate stella line -include=*.go .
+//go:generate stella line -include=*.go -s .
 package main
 
 import (

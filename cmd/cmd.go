@@ -52,7 +52,7 @@ Usage:
 	m := flageSet.Bool("m", false, "only generate models")
 	logic := flageSet.String("logic", "", "logic delete")
 	desc := flageSet.String("desc", "", "reverse order by")
-	round := flageSet.String("round", "", "round time: s, ms, μs")
+	round := flageSet.String("round", "", "round time [s/ms/μs]")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -173,7 +173,7 @@ Usage:
 `, version.VERSION)
 		flageSet.PrintDefaults()
 	}
-	l := flageSet.String("l", "go", "projcet language [go/java/node]")
+	l := flageSet.String("l", "go", "projcet language")
 	t := flageSet.String("t", "server", "project type [server/sdk]")
 	n := flageSet.String("n", "demo", "project name")
 	o := flageSet.String("o", ".", "output dictionary")
