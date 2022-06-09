@@ -71,33 +71,43 @@ var (
 	}
 )
 
-func Generate(pkg string, statements []*parser.Statement, banner bool, logic string, desc string) string {
+func Generate(pkg string, statements []*parser.Statement, banner bool, logic string, desc string, round string) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
 	importsMap["fmt"] = common.Null
 	importsMap["strings"] = common.Null
 	importsMap["time"] = common.Null
 	functions := make([]string, 0)
+	switch round {
+	case "s":
+		round = "time.Second"
+	case "ms", "milli":
+		round = "time.Millisecond"
+	case "μs", "us", "micro":
+		round = "time.Microsecond"
+	default:
+		round = ""
+	}
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports := c(statement)
+		function, imports := c(statement, round)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = u(statement)
+		function, imports = u(statement, round)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = r(statement, desc)
+		function, imports = r(statement, desc, round)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
-		function, imports = d(statement, logic)
+		function, imports = d(statement, logic, round)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -124,7 +134,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n"))
 }
 
-func c(statement *parser.Statement) (string, []string) {
+func c(statement *parser.Statement, round string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	columnNames := make([]string, 0)
 	placeHolder := make([]string, 0)
@@ -138,6 +148,9 @@ func c(statement *parser.Statement) (string, []string) {
 		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
 		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 			arg = "time.Time(" + arg + ")"
+			if round != "" {
+				arg = arg + ".Round(" + round + ")"
+			}
 		}
 		args = append(args, arg)
 	}
@@ -161,7 +174,7 @@ func c(statement *parser.Statement) (string, []string) {
 	return funcLines, nil
 }
 
-func u(statement *parser.Statement) (string, []string) {
+func u(statement *parser.Statement, round string) (string, []string) {
 	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
@@ -186,6 +199,9 @@ func u(statement *parser.Statement) (string, []string) {
 			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
+				if round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
 			}
 			set += fmt.Sprintf(`if %s {
         set += ", `+"`%s`"+` = ? "
@@ -206,6 +222,9 @@ func u(statement *parser.Statement) (string, []string) {
 			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
+				if round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
 			}
 			args = append(args, arg)
 			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
@@ -236,7 +255,7 @@ func u(statement *parser.Statement) (string, []string) {
 	return funcLines, nil
 }
 
-func r(statement *parser.Statement, desc string) (string, []string) {
+func r(statement *parser.Statement, desc string, round string) (string, []string) {
 	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
@@ -307,6 +326,9 @@ func r(statement *parser.Statement, desc string) (string, []string) {
 			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
+				if round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
 			}
 			args = append(args, arg)
 			fields = append(fields, fieldName)
@@ -361,6 +383,9 @@ func r(statement *parser.Statement, desc string) (string, []string) {
 			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
+				if round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
 			}
 			args = append(args, arg)
 			fields = append(fields, fieldName)
@@ -420,6 +445,9 @@ func r(statement *parser.Statement, desc string) (string, []string) {
 		arg := "s." + fieldName
 		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 			arg = "time.Time(" + arg + ")"
+			if round != "" {
+				arg = arg + ".Round(" + round + ")"
+			}
 		}
 		where += fmt.Sprintf(`        if %s {
             where += "and `+"`%s`"+` = ? "
@@ -482,7 +510,7 @@ func r(statement *parser.Statement, desc string) (string, []string) {
 	return funcLines, nil
 }
 
-func d(statement *parser.Statement, logic string) (string, []string) {
+func d(statement *parser.Statement, logic string, round string) (string, []string) {
 	var logicDelete bool
 	var logicCol string
 	var logicValue string
@@ -516,6 +544,9 @@ func d(statement *parser.Statement, logic string) (string, []string) {
 			arg := "s." + fieldName
 			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
 				arg = "time.Time(" + arg + ")"
+				if round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
 			}
 			args = append(args, arg)
 			fields = append(fields, fieldName)

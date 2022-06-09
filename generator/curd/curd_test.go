@@ -27,11 +27,13 @@ create table tb_dept2(
 	-- abc
     Id int primary key auto_increment,#部门编号 整形 主键 自增长''""
     Name varchar(18),#部门名称
-    description varchar(100)#描述
+    description varchar(100),#描述
+	created_date datetime,
+	key idx_c (created_date)
 );
 `
 
 	s := parser.Parse(sql)
-	file := Generate("model", s, true, "", "id")
+	file := Generate("model", s, true, "", "id", "s")
 	t.Log(file)
 }

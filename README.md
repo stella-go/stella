@@ -25,6 +25,10 @@ Conversion of SQL into structures and database operation templates
 Usage: 
         stella generate -p model -i init.sql -o model -f model
 
+  -banner
+        output banner (default true)
+  -desc string
+        reverse order by
   -f string
         output file name
   -h    print help info
@@ -39,6 +43,8 @@ Usage:
         output dictionary
   -p string
         package name (default "model")
+  -round string
+        round time: s, ms, μs
 ```
 
 For example,
