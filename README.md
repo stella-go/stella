@@ -67,59 +67,33 @@ Run command `stella generate -p model -i init.sql -o model`, Will generate two f
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2022/06/10.
+ * Auto Generate by github.com/stella-go/stella on 2022/06/24.
  */
 
 import (
 	"fmt"
-	"time"
+	"github.com/stella-go/siu/t/n"
 )
 
-type Time time.Time
-
-func (t Time) MarshalJSON() ([]byte, error) {
-	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
-	return []byte(stamp), nil
-}
-func (t *Time) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		return nil
-	}
-	tm, err := time.ParseInLocation("\"2006-01-02 15:04:05\"", string(data), time.Local)
-	if err != nil {
-		tm, err := time.ParseInLocation("\"2006-01-02\"", string(data), time.Local)
-		if err != nil {
-			return err
-		}
-		*t = Time(tm)
-		return err
-	}
-	*t = Time(tm)
-	return err
-}
-func (t Time) String() string {
-	return time.Time(t).String()
-}
-
 type TbStudents struct {
-	Id         int    `json:"id"`
-	No         string `json:"no"`
-	Name       string `json:"name"`
-	Age        int    `json:"age"`
-	Gender     string `json:"gender"`
-	CreateTime Time   `json:"create_time"`
-	UpdateTime Time   `json:"update_time"`
+	Id         *n.Int    `json:"id"`
+	No         *n.String `json:"no"`
+	Name       *n.String `json:"name"`
+	Age        *n.Int    `json:"age"`
+	Gender     *n.String `json:"gender"`
+	CreateTime *n.Time   `json:"create_time"`
+	UpdateTime *n.Time   `json:"update_time"`
 }
 
 func (s *TbStudents) String() string {
-	return fmt.Sprintf("TbStudents{Id: %d, No: %s, Name: %s, Age: %d, Gender: %s, CreateTime: %v, UpdateTime: %v}", s.Id, s.No, s.Name, s.Age, s.Gender, s.CreateTime, s.UpdateTime)
+	return fmt.Sprintf("TbStudents{Id: %s, No: %s, Name: %s, Age: %s, Gender: %s, CreateTime: %s, UpdateTime: %s}", s.Id, s.No, s.Name, s.Age, s.Gender, s.CreateTime, s.UpdateTime)
 }
 ```
 ```go
 package model
 
 /**
- * Auto Generate by github.com/stella-go/stella on 2022/06/10.
+ * Auto Generate by github.com/stella-go/stella on 2022/06/24.
  */
 
 import (
@@ -159,26 +133,26 @@ func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
 	SQL := "update `tb_students` set %s where `id` = ?"
 	set := ""
 	args := make([]interface{}, 0)
-	if s.No != "" {
+	if s.No != nil {
 		set += ", `no` = ? "
 		args = append(args, s.No)
 	}
-	if s.Name != "" {
+	if s.Name != nil {
 		set += ", `name` = ? "
 		args = append(args, s.Name)
 	}
-	if s.Age != 0 {
+	if s.Age != nil {
 		set += ", `age` = ? "
 		args = append(args, s.Age)
 	}
-	if s.Gender != "" {
+	if s.Gender != nil {
 		set += ", `gender` = ? "
 		args = append(args, s.Gender)
 	}
 	set = strings.TrimLeft(set, ",")
 	set = strings.TrimSpace(set)
 	if set == "" {
-		return fmt.Errorf("all field is zero")
+		return fmt.Errorf("all field is nil")
 	}
 	SQL = fmt.Sprintf(SQL, set)
 	args = append(args, s.Id)
@@ -199,26 +173,12 @@ func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
 	}
 	SQL := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` where `id` = ?"
 	ret := &TbStudents{}
-	var Age sql.NullInt32
-	var No, Name, Gender sql.NullString
-	err := db.QueryRow(SQL, s.Id).Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
+	err := db.QueryRow(SQL, s.Id).Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
 		return nil, nil
-	}
-	if Age.Valid {
-		ret.Age = int(Age.Int32)
-	}
-	if No.Valid {
-		ret.No = No.String
-	}
-	if Name.Valid {
-		ret.Name = Name.String
-	}
-	if Gender.Valid {
-		ret.Gender = Gender.String
 	}
 	return ret, nil
 }
@@ -234,33 +194,33 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 	where := ""
 	args := make([]interface{}, 0)
 	if s != nil {
-		if s.Id != 0 {
+		if s.Id != nil {
 			where += "and `id` = ? "
 			args = append(args, s.Id)
 		}
-		if s.No != "" {
+		if s.No != nil {
 			where += "and `no` = ? "
 			args = append(args, s.No)
 		}
-		if s.Name != "" {
+		if s.Name != nil {
 			where += "and `name` = ? "
 			args = append(args, s.Name)
 		}
-		if s.Age != 0 {
+		if s.Age != nil {
 			where += "and `age` = ? "
 			args = append(args, s.Age)
 		}
-		if s.Gender != "" {
+		if s.Gender != nil {
 			where += "and `gender` = ? "
 			args = append(args, s.Gender)
 		}
-		if !time.Time(s.CreateTime).IsZero() {
+		if s.CreateTime != nil {
 			where += "and `create_time` = ? "
-			args = append(args, time.Time(s.CreateTime))
+			args = append(args, s.CreateTime.Round(time.Second))
 		}
-		if !time.Time(s.UpdateTime).IsZero() {
+		if s.UpdateTime != nil {
 			where += "and `update_time` = ? "
-			args = append(args, time.Time(s.UpdateTime))
+			args = append(args, s.UpdateTime.Round(time.Second))
 		}
 		where = strings.TrimLeft(where, "and")
 		where = strings.TrimSpace(where)
@@ -287,23 +247,9 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 	results := make([]*TbStudents, 0)
 	for rows.Next() {
 		ret := &TbStudents{}
-		var Age sql.NullInt32
-		var No, Name, Gender sql.NullString
-		err = rows.Scan(&ret.Id, &No, &Name, &Age, &Gender, &ret.CreateTime, &ret.UpdateTime)
+		err = rows.Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
 		if err != nil {
 			return 0, nil, err
-		}
-		if Age.Valid {
-			ret.Age = int(Age.Int32)
-		}
-		if No.Valid {
-			ret.No = No.String
-		}
-		if Name.Valid {
-			ret.Name = Name.String
-		}
-		if Gender.Valid {
-			ret.Gender = Gender.String
 		}
 		results = append(results, ret)
 	}
