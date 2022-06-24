@@ -25,45 +25,7 @@ import (
 )
 
 var (
-	typeMapping = map[string]string{
-		"TINYINT":   "int",
-		"INT":       "int",
-		"BIGINT":    "int64",
-		"FLOAT":     "float64",
-		"CHAR":      "string",
-		"VARCHAR":   "string",
-		"TEXT":      "string",
-		"DATE":      "Time",
-		"DATETIME":  "Time",
-		"TIMESTAMP": "Time",
-		"default":   "interface{}",
-	}
-	nullTypesMapping = map[string]string{
-		"bool":    "sql.NullBool",
-		"int":     "sql.NullInt32",
-		"int64":   "sql.NullInt64",
-		"float64": "sql.NullFloat64",
-		"string":  "sql.NullString",
-		"Time":    "sql.NullTime",
-	}
-	nullTypesValueMapping = map[string]string{
-		"sql.NullBool":    "Bool",
-		"sql.NullInt32":   "Int32",
-		"sql.NullInt64":   "Int64",
-		"sql.NullFloat64": "Float64",
-		"sql.NullString":  "String",
-		"sql.NullTime":    "Time",
-	}
-	notZeroValueMapping = map[string]string{
-		"bool":    "!%s",
-		"int":     "%s != 0",
-		"int64":   "%s != 0",
-		"float64": "math.Float64bits(%s) != 0",
-		"string":  "%s != \"\"",
-		"Time":    "!time.Time(%s).IsZero()",
-	}
-	nullTypesSort = []string{"sql.NullBool", "sql.NullInt32", "sql.NullInt64", "sql.NullFloat64", "sql.NullString", "sql.NullTime"}
-	unDeleteMap   = map[interface{}]interface{}{
+	unDeleteMap = map[interface{}]interface{}{
 		`\"0\"`: `\"1\"`,
 		`\"1\"`: `\"0\"`,
 		`1`:     `0`,
@@ -76,7 +38,6 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
 	importsMap["database/sql"] = common.Null
 	importsMap["fmt"] = common.Null
 	importsMap["strings"] = common.Null
-	importsMap["time"] = common.Null
 	functions := make([]string, 0)
 	switch round {
 	case "s":
@@ -87,6 +48,9 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
 		round = "time.Microsecond"
 	default:
 		round = ""
+	}
+	if round != "" {
+		importsMap["time"] = common.Null
 	}
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
@@ -127,9 +91,10 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
     QueryRow(query string, args ...interface{}) *sql.Row
     Query(query string, args ...interface{}) (*sql.Rows, error)
 }`
-	bannerS := fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
-	if !banner {
-		bannerS = ""
+	bannerS := ""
+	if banner {
+		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
+
 	}
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), datasourceLines, strings.Join(functions, "\n"))
 }
@@ -146,11 +111,8 @@ func c(statement *parser.Statement, round string) (string, []string) {
 		columnNames = append(columnNames, "`"+col.ColumnName.Name+"`")
 		placeHolder = append(placeHolder, "?")
 		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
-		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-			arg = "time.Time(" + arg + ")"
-			if round != "" {
-				arg = arg + ".Round(" + round + ")"
-			}
+		if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+			arg = arg + ".Round(" + round + ")"
 		}
 		args = append(args, arg)
 	}
@@ -175,7 +137,6 @@ func c(statement *parser.Statement, round string) (string, []string) {
 }
 
 func u(statement *parser.Statement, round string) (string, []string) {
-	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	uniqKeyPairs := getUniqKeyPairs(statement)
@@ -192,27 +153,20 @@ func u(statement *parser.Statement, round string) (string, []string) {
 				continue
 			}
 			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
-			fieldType := typeMapping[col.Type]
-			if fieldType == "float64" {
-				importMath = true
-			}
 			arg := "s." + fieldName
-			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-				arg = "time.Time(" + arg + ")"
-				if round != "" {
-					arg = arg + ".Round(" + round + ")"
-				}
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
 			}
-			set += fmt.Sprintf(`if %s {
+			set += fmt.Sprintf(`if %s != nil {
         set += ", `+"`%s`"+` = ? "
         args = append(args, %s)
     }
-    `, fmt.Sprintf(notZeroValueMapping[fieldType], "s."+fieldName), col.ColumnName, arg)
+    `, "s."+fieldName, col.ColumnName, arg)
 		}
 		set += `set = strings.TrimLeft(set, ",")
     set = strings.TrimSpace(set)
     if set == "" {
-        return fmt.Errorf("all field is zero")
+        return fmt.Errorf("all field is nil")
     }
     SQL = fmt.Sprintf(SQL, set)`
 		fields := make([]string, 0)
@@ -220,11 +174,8 @@ func u(statement *parser.Statement, round string) (string, []string) {
 		for _, col := range keys {
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
 			arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
-			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-				arg = "time.Time(" + arg + ")"
-				if round != "" {
-					arg = arg + ".Round(" + round + ")"
-				}
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
 			}
 			args = append(args, arg)
 			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
@@ -249,70 +200,19 @@ func u(statement *parser.Statement, round string) (string, []string) {
 }
 `, modelName, strings.Join(fields, ""), modelName, SQL, set, strings.Join(args, ", "))
 	}
-	if importMath {
-		return funcLines, []string{"math"}
-	}
 	return funcLines, nil
 }
 
 func r(statement *parser.Statement, desc string, round string) (string, []string) {
-	importMath := false
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	names := make([]string, 0)
-	nullable := make(map[string][]string)
 	binds := make([]string, 0)
 
 	for _, col := range statement.Columns {
 		names = append(names, "`"+col.ColumnName.Name+"`")
 		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
-		if !col.NotNull {
-			typ, ok := typeMapping[col.Type]
-			if !ok {
-				typ = typeMapping["default"]
-			}
-			nullType := nullTypesMapping[typ]
-			if list, ok := nullable[nullType]; ok {
-				nullable[nullType] = append(list, fieldName)
-			} else {
-				nullable[nullType] = []string{fieldName}
-			}
-			binds = append(binds, "&"+fieldName)
-		} else {
-			binds = append(binds, "&ret."+fieldName)
-		}
-	}
-
-	nullableDefinitions := make([]string, 0)
-	for _, v := range nullTypesSort {
-		if names, ok := nullable[v]; ok {
-			nullableDefinitions = append(nullableDefinitions, fmt.Sprintf("        var %s %s", strings.Join(names, ", "), v))
-		}
-	}
-	nullableDefinition := strings.Join(nullableDefinitions, "\n")
-	if nullableDefinition != "" {
-		nullableDefinition = "\n" + nullableDefinition
-	}
-	nullableAssignments := make([]string, 0)
-	for _, v := range nullTypesSort {
-		if names, ok := nullable[v]; ok {
-			for _, name := range names {
-				nullValue := name + "." + nullTypesValueMapping[v]
-				if v == "sql.NullInt32" {
-					nullValue = "int(" + nullValue + ")"
-				}
-				if v == "sql.NullTime" {
-					nullValue = "Time(" + nullValue + ")"
-				}
-				nullableAssignments = append(nullableAssignments, fmt.Sprintf(`    if %s.Valid {
-            ret.%s = %s
-        }`, name, name, nullValue))
-			}
-		}
-	}
-	nullableAssignment := strings.Join(nullableAssignments, "\n    ")
-	if nullableAssignment != "" {
-		nullableAssignment = "\n    " + nullableAssignment
+		binds = append(binds, "&ret."+fieldName)
 	}
 
 	uniqKeyPairs := getUniqKeyPairs(statement)
@@ -324,11 +224,8 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
 			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 			arg := "s." + fieldName
-			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-				arg = "time.Time(" + arg + ")"
-				if round != "" {
-					arg = arg + ".Round(" + round + ")"
-				}
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
 			}
 			args = append(args, arg)
 			fields = append(fields, fieldName)
@@ -339,17 +236,17 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
         return nil, fmt.Errorf("pointer can not be nil")
     }
     SQL := "%s"
-    ret := &%s{}%s
+    ret := &%s{}
     err := db.QueryRow(SQL, %s).Scan(%s)
     if err != nil {
         if err != sql.ErrNoRows {
             return nil, err
         }
         return nil, nil
-    }%s
+    }
     return ret, nil
 }
-`, modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, nullableDefinition, strings.Join(args, ", "), strings.Join(binds, ", "), nullableAssignment)
+`, modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, strings.Join(args, ", "), strings.Join(binds, ", "))
 	}
 
 	order := ""
@@ -381,11 +278,8 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
 			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 			arg := "s." + fieldName
-			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-				arg = "time.Time(" + arg + ")"
-				if round != "" {
-					arg = arg + ".Round(" + round + ")"
-				}
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
 			}
 			args = append(args, arg)
 			fields = append(fields, fieldName)
@@ -420,16 +314,16 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 
     results := make([]*%s, 0)
     for rows.Next() {
-        ret := &%s{}%s
+        ret := &%s{}
         err = rows.Scan(%s)
         if err != nil {
             return 0, nil, err
-        }%s
+        }
         results = append(results, ret)
     }
     return count, results, nil
 }
-`, modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
+`, modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, strings.Join(binds, ", "))
 	}
 
 	where := `where := ""
@@ -438,22 +332,15 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 `
 	for _, col := range statement.Columns {
 		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
-		fieldType := typeMapping[col.Type]
-		if fieldType == "float64" {
-			importMath = true
-		}
 		arg := "s." + fieldName
-		if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-			arg = "time.Time(" + arg + ")"
-			if round != "" {
-				arg = arg + ".Round(" + round + ")"
-			}
+		if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+			arg = arg + ".Round(" + round + ")"
 		}
-		where += fmt.Sprintf(`        if %s {
+		where += fmt.Sprintf(`        if %s != nil {
             where += "and `+"`%s`"+` = ? "
             args = append(args, %s)
         }
-`, fmt.Sprintf(notZeroValueMapping[fieldType], "s."+fieldName), col.ColumnName, arg)
+`, "s."+fieldName, col.ColumnName, arg)
 	}
 
 	where += `        where = strings.TrimLeft(where, "and")
@@ -493,20 +380,16 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 
     results := make([]*%s, 0)
     for rows.Next() {
-        ret := &%s{}%s
+        ret := &%s{}
         err = rows.Scan(%s)
         if err != nil {
             return 0, nil, err
-        }%s
+        }
         results = append(results, ret)
     }
     return count, results, nil
 }
-`, modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, nullableDefinition, strings.Join(binds, ", "), nullableAssignment)
-
-	if importMath {
-		return funcLines, []string{"math"}
-	}
+`, modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, strings.Join(binds, ", "))
 	return funcLines, nil
 }
 
@@ -613,7 +496,7 @@ func getUniqKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
 		p := make([]*parser.ColumnDefinition, 0)
 		for _, k := range pair {
 			for _, c := range statement.Columns {
-				if strings.ToUpper(c.ColumnName.Name) == strings.ToUpper(k.Name) {
+				if strings.EqualFold(c.ColumnName.Name, k.Name) {
 					p = append(p, c)
 					break
 				}
@@ -627,7 +510,7 @@ func getUniqKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
 		p := make([]*parser.ColumnDefinition, 0)
 		for _, k := range pair {
 			for _, c := range statement.Columns {
-				if strings.ToUpper(c.ColumnName.Name) == strings.ToUpper(k.Name) {
+				if strings.EqualFold(c.ColumnName.Name, k.Name) {
 					p = append(p, c)
 					break
 				}

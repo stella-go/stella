@@ -25,53 +25,27 @@ import (
 )
 
 var (
-	fmtPlaceHolderMapping = map[string]string{
-		"bool":    "%t",
-		"int":     "%d",
-		"string":  "%s",
-		"default": "%v",
-	}
 	typeMapping = map[string]string{
-		"TINYINT":   "int",
-		"INT":       "int",
-		"BIGINT":    "int64",
-		"FLOAT":     "float64",
-		"CHAR":      "string",
-		"VARCHAR":   "string",
-		"TEXT":      "string",
-		"DATE":      "Time",
-		"DATETIME":  "Time",
-		"TIMESTAMP": "Time",
+		"TINYINT":   "*n.Int",
+		"INT":       "*n.Int",
+		"BIGINT":    "*n.Int64",
+		"FLOAT":     "*n.Float64",
+		"CHAR":      "*n.String",
+		"VARCHAR":   "*n.String",
+		"TEXT":      "*n.String",
+		"DATE":      "*n.Time",
+		"DATETIME":  "*n.Time",
+		"TIMESTAMP": "*n.Time",
 		"default":   "interface{}",
 	}
 	typeImportsMapping = map[string]string{
-		"Time": "time",
+		"*n.Bool":    "github.com/stella-go/siu/t/n",
+		"*n.Int":     "github.com/stella-go/siu/t/n",
+		"*n.Int64":   "github.com/stella-go/siu/t/n",
+		"*n.Float64": "github.com/stella-go/siu/t/n",
+		"*n.String":  "github.com/stella-go/siu/t/n",
+		"*n.Time":    "github.com/stella-go/siu/t/n",
 	}
-	Time = `type Time time.Time
-
-func (t Time) MarshalJSON() ([]byte, error) {
-    var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
-    return []byte(stamp), nil
-}
-func (t *Time) UnmarshalJSON(data []byte) error {
-    if string(data) == "null" {
-        return nil
-    }
-    tm, err := time.ParseInLocation("\"2006-01-02 15:04:05\"", string(data), time.Local)
-    if err != nil {
-        tm, err := time.ParseInLocation("\"2006-01-02\"", string(data), time.Local)
-        if err != nil {
-            return err
-        }
-        *t = Time(tm)
-        return err
-    }
-    *t = Time(tm)
-    return err
-}
-func (t Time) String() string {
-    return time.Time(t).String()
-}`
 )
 
 type Field struct {
@@ -101,11 +75,7 @@ func (s *Struct) toString() string {
 	formats := make([]string, 0)
 	args := make([]string, 0)
 	for _, f := range s.fields {
-		placeHolder, ok := fmtPlaceHolderMapping[f.typ]
-		if !ok {
-			placeHolder = fmtPlaceHolderMapping["default"]
-		}
-		line := f.name + ": " + placeHolder
+		line := f.name + ": %s"
 		formats = append(formats, line)
 		arg := "s." + f.name
 		args = append(args, arg)
@@ -118,16 +88,12 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["fmt"] = common.Null
 	structs := make([]string, 0)
-	defineTime := false
 	for _, statement := range statements {
 		fields := make([]*Field, 0)
 		for _, col := range statement.Columns {
 			typ, ok := typeMapping[col.Type]
 			if !ok {
 				typ = typeMapping["default"]
-			}
-			if typ == "Time" {
-				defineTime = true
 			}
 			importsMap[typeImportsMapping[typ]] = common.Null
 
@@ -139,11 +105,6 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 		structs = append(structs, struc.String())
 	}
 
-	t := ""
-	if defineTime {
-		t = "\n" + Time + "\n"
-	}
-
 	importsLines := make([]string, 0)
 	for i := range importsMap {
 		if i == "" {
@@ -151,9 +112,10 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 		}
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
-	bannerS := fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
-	if !banner {
-		bannerS = ""
+	bannerS := ""
+	if banner {
+		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
+
 	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n%s\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), t, strings.Join(structs, "\n"))
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), strings.Join(structs, "\n"))
 }

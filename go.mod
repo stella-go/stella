@@ -1,6 +1,6 @@
 module github.com/stella-go/stella
 
-go 1.16
+go 1.18
 
 require (
 	github.com/antlr/antlr4 v0.0.0-20200119161855-7a3f40bc341d

@@ -2,7 +2,7 @@ PWD=$(shell pwd)
 GO_VERSION=1.16.15
 IMAGE_NAME=stella-go/go:${GO_VERSION}
 
-.PHONY : all
+.PHONY: all
 
 all: .build-docker vendor
 	@docker run --rm -v $(PWD):/src -w /src ${IMAGE_NAME} ./build.sh
