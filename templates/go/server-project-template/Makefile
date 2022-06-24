@@ -1,5 +1,5 @@
 PWD=$(shell pwd)
-GO_VERSION=1.16.15
+GO_VERSION=1.18.3
 IMAGE_NAME=stella-go/go:${GO_VERSION}
 
 .PHONY: all
