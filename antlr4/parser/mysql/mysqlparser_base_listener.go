@@ -1,7 +1,7 @@
 // Code generated from MySqlParser.g4 by ANTLR 4.8. DO NOT EDIT.
 
 package mysql // MySqlParser
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/stella-go/stella/generator/parser/antlr"
 
 // BaseMySqlParserListener is a complete listener for a parse tree produced by MySqlParser.
 type BaseMySqlParserListener struct{}

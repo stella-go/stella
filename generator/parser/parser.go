@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/stella-go/stella/generator/parser/antlr"
 	"github.com/stella-go/stella/generator/parser/mysql"
 )
 
