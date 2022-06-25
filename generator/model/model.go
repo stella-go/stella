@@ -97,7 +97,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 			}
 			importsMap[typeImportsMapping[typ]] = common.Null
 
-			tag := fmt.Sprintf("json:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name))
+			tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name))
 			field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
 			fields = append(fields, field)
 		}

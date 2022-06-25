@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"unicode"
 
-	"github.com/stella-go/stella/generator/parser/antlr"
+	"github.com/stella-go/stella/antlr4/antlr"
 )
 
 // Suppress unused import error

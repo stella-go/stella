@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stella-go/stella/generator/parser/antlr"
-	"github.com/stella-go/stella/generator/parser/mysql"
+	"github.com/stella-go/stella/antlr4/antlr"
+	"github.com/stella-go/stella/antlr4/mysql"
 )
 
 type MysqlVisitor struct {

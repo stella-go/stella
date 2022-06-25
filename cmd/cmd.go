@@ -51,6 +51,7 @@ Usage:
 	banner := flageSet.Bool("banner", true, "output banner")
 	m := flageSet.Bool("m", false, "only generate models")
 	logic := flageSet.String("logic", "", "logic delete")
+	asc := flageSet.String("asc", "", "order by")
 	desc := flageSet.String("desc", "", "reverse order by")
 	round := flageSet.String("round", "", "round time [s/ms/μs]")
 	h := flageSet.Bool("h", false, "print help info")
@@ -60,7 +61,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f, *banner, *m, *logic, *desc, *round)
+	generate(*p, *i, *o, *f, *banner, *m, *logic, *asc, *desc, *round)
 }
 
 func readFileWithStdin(input string) string {
@@ -85,7 +86,7 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string, banner bool, onlymodel bool, logic string, desc string, round string) {
+func generate(pkg string, input string, output string, file string, banner bool, onlymodel bool, logic string, asc string, desc string, round string) {
 	if file == "" {
 		file = pkg
 	}
@@ -98,7 +99,7 @@ func generate(pkg string, input string, output string, file string, banner bool,
 
 	if !onlymodel {
 		filename = pkg + "_auto_curd.go"
-		content = curd.Generate(pkg, statements, banner, logic, desc, round)
+		content = curd.Generate(pkg, statements, banner, logic, asc, desc, round)
 		writeFileTryFormat(output, filename, content)
 	}
 }

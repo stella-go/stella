@@ -1,7 +1,7 @@
 // Code generated from MySqlParser.g4 by ANTLR 4.8. DO NOT EDIT.
 
 package mysql // MySqlParser
-import "github.com/stella-go/stella/generator/parser/antlr"
+import "github.com/stella-go/stella/antlr4/antlr"
 
 type BaseMySqlParserVisitor struct {
 	*antlr.BaseParseTreeVisitor

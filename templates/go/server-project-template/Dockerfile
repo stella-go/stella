@@ -22,3 +22,4 @@ ENV GO111MODULE=auto \
     GOROOT=/usr/local/go \
     GOPATH=/go
 ENV PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+RUN GO111MODULE=off go get -u github.com/stella-go/stella

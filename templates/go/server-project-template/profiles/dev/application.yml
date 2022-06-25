@@ -4,8 +4,8 @@ server:
   mode: debug
   port: 8080
 
-# logger:
-#   level: DEBUG
+logger:
+  level: DEBUG
 #   path: ./logs
 #   file: log.txt
 #   daliy: true
@@ -17,7 +17,7 @@ server:
 #   passwd: root
 #   addr: 127.0.0.1:3306
 #   dbName: test
-#   collation: utf8
+#   collation: utf8_bin
 #   timeout: 100000
 #   readTimeout: 50000
 #   writeTimeout: 50000

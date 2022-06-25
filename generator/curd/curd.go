@@ -33,11 +33,12 @@ var (
 	}
 )
 
-func Generate(pkg string, statements []*parser.Statement, banner bool, logic string, desc string, round string) string {
+func Generate(pkg string, statements []*parser.Statement, banner bool, logic string, asc string, desc string, round string) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
 	importsMap["fmt"] = common.Null
 	importsMap["strings"] = common.Null
+	importsMap["github.com/stella-go/siu/t"] = common.Null
 	functions := make([]string, 0)
 	switch round {
 	case "s":
@@ -66,7 +67,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
 			importsMap[i] = common.Null
 		}
 
-		function, imports = r(statement, desc, round)
+		function, imports = r(statement, asc, desc, round)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -119,16 +120,16 @@ func c(statement *parser.Statement, round string) (string, []string) {
 	SQL := fmt.Sprintf("insert into `%s` (%s) values (%s)", statement.TableName.Name, strings.Join(columnNames, ", "), strings.Join(placeHolder, ", "))
 	funcLines := fmt.Sprintf(`func Create%s(db DataSource, s *%s) error {
     if s == nil {
-        return fmt.Errorf("pointer can not be nil")
+        return t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
-        return err
+        return t.Error(err)
     }
     _, err = ret.RowsAffected()
     if err != nil {
-        return err
+        return t.Error(err)
     }
     return nil
 }
@@ -183,18 +184,18 @@ func u(statement *parser.Statement, round string) (string, []string) {
 		SQL := fmt.Sprintf("update `%s` set %%s where %s", statement.TableName.Name, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Update%sBy%s(db DataSource, s *%s) error {
     if s == nil {
-        return fmt.Errorf("pointer can not be nil")
+        return t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     %s
 	args = append(args, %s)
     ret, err := db.Exec(SQL, args...)
     if err != nil {
-        return err
+        return t.Error(err)
     }
     _, err = ret.RowsAffected()
     if err != nil {
-        return err
+        return t.Error(err)
     }
     return nil
 }
@@ -203,7 +204,7 @@ func u(statement *parser.Statement, round string) (string, []string) {
 	return funcLines, nil
 }
 
-func r(statement *parser.Statement, desc string, round string) (string, []string) {
+func r(statement *parser.Statement, asc string, desc string, round string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines := ""
 	names := make([]string, 0)
@@ -233,14 +234,14 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 		SQL := fmt.Sprintf("select %s from `%s` where %s", strings.Join(names, ", "), statement.TableName, strings.Join(conditions, " and "))
 		funcLines += fmt.Sprintf(`func Query%sBy%s(db DataSource, s *%s) (*%s, error) {
     if s == nil {
-        return nil, fmt.Errorf("pointer can not be nil")
+        return nil, t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     ret := &%s{}
     err := db.QueryRow(SQL, %s).Scan(%s)
     if err != nil {
         if err != sql.ErrNoRows {
-            return nil, err
+            return nil, t.Error(err)
         }
         return nil, nil
     }
@@ -248,10 +249,37 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 }
 `, modelName, strings.Join(fields, ""), modelName, modelName, SQL, modelName, strings.Join(args, ", "), strings.Join(binds, ", "))
 	}
-
-	order := ""
-	orders := make([]string, 0)
+	type Order struct {
+		FuncSuffix string
+		Statement  string
+	}
+	orders := []*Order{{}}
+	if asc != "" {
+		columns := make([]string, 0)
+		if (strings.HasPrefix(asc, "\"") && strings.HasSuffix(asc, "\"")) || (strings.HasPrefix(asc, "'") && strings.HasSuffix(asc, "'")) {
+			asc = asc[1 : len(asc)-1]
+		}
+		columnNames := strings.Split(asc, ",")
+		for _, name := range columnNames {
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name != name {
+					continue
+				}
+				columns = append(columns, c.ColumnName.Name)
+			}
+		}
+		if len(columns) != 0 {
+			s1 := make([]string, 0)
+			s2 := make([]string, 0)
+			for _, c := range columns {
+				s1 = append(s1, generator.FirstUpperCamelCase(c))
+				s2 = append(s2, "`"+c+"`")
+			}
+			orders = append(orders, &Order{FuncSuffix: fmt.Sprintf("OrderBy%s", strings.Join(s1, "")), Statement: fmt.Sprintf("order by %s ", strings.Join(s2, ", "))})
+		}
+	}
 	if desc != "" {
+		columns := make([]string, 0)
 		if (strings.HasPrefix(desc, "\"") && strings.HasSuffix(desc, "\"")) || (strings.HasPrefix(desc, "'") && strings.HasSuffix(desc, "'")) {
 			desc = desc[1 : len(desc)-1]
 		}
@@ -261,34 +289,40 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
 				if c.ColumnName.Name != name {
 					continue
 				}
-				orders = append(orders, "`"+c.ColumnName.Name+"`")
+				columns = append(columns, c.ColumnName.Name)
 			}
 		}
-		if len(orders) != 0 {
-			order = fmt.Sprintf("order by %s desc ", strings.Join(orders, ", "))
+		if len(columns) != 0 {
+			s1 := make([]string, 0)
+			s2 := make([]string, 0)
+			for _, c := range columns {
+				s1 = append(s1, generator.FirstUpperCamelCase(c))
+				s2 = append(s2, "`"+c+"`")
+			}
+			orders = append(orders, &Order{FuncSuffix: fmt.Sprintf("OrderBy%sDesc", strings.Join(s1, "")), Statement: fmt.Sprintf("order by %s desc ", strings.Join(s2, ", "))})
 		}
 	}
-
-	indexKeyPairs := getIndexKeyPairs(statement)
-	for _, keys := range indexKeyPairs {
-		fields := make([]string, 0)
-		conditions := make([]string, 0)
-		args := make([]string, 0)
-		for _, col := range keys {
-			conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
-			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
-			arg := "s." + fieldName
-			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
-				arg = arg + ".Round(" + round + ")"
+	for _, order := range orders {
+		indexKeyPairs := getIndexKeyPairs(statement)
+		for _, keys := range indexKeyPairs {
+			fields := make([]string, 0)
+			conditions := make([]string, 0)
+			args := make([]string, 0)
+			for _, col := range keys {
+				conditions = append(conditions, "`"+col.ColumnName.Name+"` = ?")
+				fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+				arg := "s." + fieldName
+				if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+					arg = arg + ".Round(" + round + ")"
+				}
+				args = append(args, arg)
+				fields = append(fields, fieldName)
 			}
-			args = append(args, arg)
-			fields = append(fields, fieldName)
-		}
-		SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
-		SQL2 := fmt.Sprintf("select %s from `%s` where %s %slimit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "), order)
-		funcLines += fmt.Sprintf(`func QueryMany%sBy%s(db DataSource, s *%s, page int, size int) (int, []*%s, error) {
+			SQL1 := fmt.Sprintf("select count(*) from `%s` where %s", statement.TableName.Name, strings.Join(conditions, " and "))
+			SQL2 := fmt.Sprintf("select %s from `%s` where %s %slimit ?, ?", strings.Join(names, ", "), statement.TableName.Name, strings.Join(conditions, " and "), order.Statement)
+			funcLines += fmt.Sprintf(`func QueryMany%sBy%s%s(db DataSource, s *%s, page int, size int) (int, []*%s, error) {
     if s == nil {
-        return 0, nil, fmt.Errorf("pointer can not be nil")
+        return 0, nil, t.Error(fmt.Errorf("pointer can not be nil"))
     }
     if page <= 0 {
         page = 1
@@ -300,14 +334,14 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
     count := 0
     err := db.QueryRow(SQL1, %s).Scan(&count)
     if err != nil {
-        return 0, nil, err
+        return 0, nil, t.Error(err)
     }
 
     SQL2 := "%s"
     rows, err := db.Query(SQL2, %s, (page-1)*size, size)
     if err != nil {
         if err != sql.ErrNoRows {
-            return 0, nil, err
+            return 0, nil, t.Error(err)
         }
     }
     defer rows.Close()
@@ -317,33 +351,33 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
         ret := &%s{}
         err = rows.Scan(%s)
         if err != nil {
-            return 0, nil, err
+            return 0, nil, t.Error(err)
         }
         results = append(results, ret)
     }
     return count, results, nil
 }
-`, modelName, strings.Join(fields, ""), modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, strings.Join(binds, ", "))
-	}
+`, modelName, strings.Join(fields, ""), order.FuncSuffix, modelName, modelName, SQL1, strings.Join(args, ", "), SQL2, strings.Join(args, ", "), modelName, modelName, strings.Join(binds, ", "))
+		}
 
-	where := `where := ""
+		where := `where := ""
     args := make([]interface{}, 0)
     if s != nil {
 `
-	for _, col := range statement.Columns {
-		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
-		arg := "s." + fieldName
-		if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
-			arg = arg + ".Round(" + round + ")"
-		}
-		where += fmt.Sprintf(`        if %s != nil {
+		for _, col := range statement.Columns {
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+			arg := "s." + fieldName
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
+			}
+			where += fmt.Sprintf(`        if %s != nil {
             where += "and `+"`%s`"+` = ? "
             args = append(args, %s)
         }
 `, "s."+fieldName, col.ColumnName, arg)
-	}
+		}
 
-	where += `        where = strings.TrimLeft(where, "and")
+		where += `        where = strings.TrimLeft(where, "and")
         where = strings.TrimSpace(where)
         if where != "" {
             where = "where " + where
@@ -352,9 +386,9 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
     SQL1 = fmt.Sprintf(SQL1, where)
     SQL2 = fmt.Sprintf(SQL2, where)`
 
-	SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
-	SQL2 := fmt.Sprintf("select %s from `%s` %%s %slimit ?, ?", strings.Join(names, ", "), statement.TableName.Name, order)
-	funcLines += fmt.Sprintf(`func QueryMany%s(db DataSource, s *%s, page int, size int) (int, []*%s, error) {
+		SQL1 := fmt.Sprintf("select count(*) from `%s` %%s", statement.TableName.Name)
+		SQL2 := fmt.Sprintf("select %s from `%s` %%s %slimit ?, ?", strings.Join(names, ", "), statement.TableName.Name, order.Statement)
+		funcLines += fmt.Sprintf(`func QueryMany%s%s(db DataSource, s *%s, page int, size int) (int, []*%s, error) {
     if page <= 0 {
         page = 1
     }
@@ -367,13 +401,13 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
     count := 0
     err := db.QueryRow(SQL1, args...).Scan(&count)
     if err != nil {
-        return 0, nil, err
+        return 0, nil, t.Error(err)
     }
     args = append(args, (page-1)*size, size)
     rows, err := db.Query(SQL2, args...)
     if err != nil {
         if err != sql.ErrNoRows {
-            return 0, nil, err
+            return 0, nil, t.Error(err)
         }
     }
     defer rows.Close()
@@ -383,13 +417,14 @@ func r(statement *parser.Statement, desc string, round string) (string, []string
         ret := &%s{}
         err = rows.Scan(%s)
         if err != nil {
-            return 0, nil, err
+            return 0, nil, t.Error(err)
         }
         results = append(results, ret)
     }
     return count, results, nil
 }
-`, modelName, modelName, modelName, SQL1, SQL2, where, modelName, modelName, strings.Join(binds, ", "))
+`, modelName, order.FuncSuffix, modelName, modelName, SQL1, SQL2, where, modelName, modelName, strings.Join(binds, ", "))
+	}
 	return funcLines, nil
 }
 
@@ -442,16 +477,16 @@ func d(statement *parser.Statement, logic string, round string) (string, []strin
 		}
 		funcTemplate := `func %sDelete%sBy%s(db DataSource, s *%s) error {
     if s == nil {
-        return fmt.Errorf("pointer can not be nil")
+        return t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
-        return err
+        return t.Error(err)
     }
     _, err = ret.RowsAffected()
     if err != nil {
-        return err
+        return t.Error(err)
     }
     return nil
 }
