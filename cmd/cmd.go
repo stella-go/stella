@@ -27,6 +27,8 @@ import (
 	"github.com/stella-go/stella/generator/curd"
 	"github.com/stella-go/stella/generator/model"
 	"github.com/stella-go/stella/generator/parser"
+	"github.com/stella-go/stella/generator/router"
+	"github.com/stella-go/stella/generator/service"
 	"github.com/stella-go/stella/gofmt"
 	"github.com/stella-go/stella/line"
 	"github.com/stella-go/stella/version"
@@ -55,6 +57,9 @@ Usage:
 	logic := flageSet.String("logic", "", "logic delete")
 	round := flageSet.String("round", "", "round time [s/ms/μs]")
 	banner := flageSet.Bool("banner", true, "output banner")
+
+	router := flageSet.Bool("router", false, "generate router")
+	service := flageSet.Bool("service", false, "generate service")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -62,7 +67,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f, *banner, *m, *c, *logic, *asc, *desc, *round)
+	generate(*p, *i, *o, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *router, *service)
 }
 
 func readFileWithStdin(input string) string {
@@ -87,10 +92,43 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string) {
+func generate(pkg string, input string, output string, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, onlyRouter bool, onlyService bool) {
+	sql := readFileWithStdin(input)
+	statements := parser.Parse(sql)
+
+	if onlyRouter {
+		p, f, o := fill(pkg, output, file, "router")
+		filename := f + "_auto.go"
+		content := router.Generate(p, statements, banner)
+		writeFileTryFormat(o, filename, content)
+	}
+
+	if onlyService {
+		p, f, o := fill(pkg, output, file, "service")
+		filename := f + "_auto.go"
+		content := service.Generate(p, statements, banner)
+		writeFileTryFormat(o, filename, content)
+	}
+
+	if m {
+		p, f, o := fill(pkg, output, file, "model")
+		filename := f + "_auto.go"
+		content := model.Generate(p, statements, banner)
+		writeFileTryFormat(o, filename, content)
+	}
+
+	if c {
+		p, f, o := fill(pkg, output, file, "model")
+		filename := f + "_curd_auto.go"
+		content := curd.Generate(p, statements, banner, logic, asc, desc, round)
+		writeFileTryFormat(o, filename, content)
+	}
+}
+
+func fill(pkg string, output string, file string, defaultValue string) (string, string, string) {
 	if pkg == "" {
 		if output == "" {
-			pkg = "model"
+			pkg = defaultValue
 		} else {
 			pkg = output
 		}
@@ -98,37 +136,8 @@ func generate(pkg string, input string, output string, file string, banner bool,
 	if file == "" {
 		file = pkg
 	}
-	sql := readFileWithStdin(input)
-	statements := parser.Parse(sql)
-
-	if m {
-		filename := file + "_auto.go"
-		content := model.Generate(pkg, statements, banner)
-		writeFileTryFormat(output, filename, content)
-	}
-
-	if c {
-		filename := pkg + "_auto_curd.go"
-		content := curd.Generate(pkg, statements, banner, logic, asc, desc, round)
-		writeFileTryFormat(output, filename, content)
-	}
+	return pkg, file, defaultValue
 }
-
-// func generateModel(pkg string, input string, output string) {
-// 	filename := pkg + ".go"
-// 	sql := readFileWithStdin(input)
-// 	statements := parser.Parse(sql)
-// 	content := model.Generate(pkg, statements)
-// 	writeFileTryFormat(output, filename, content)
-// }
-
-// func generateCURD(pkg string, input string, output string) {
-// 	filename := pkg + "_curd.go"
-// 	sql := readFileWithStdin(input)
-// 	statements := parser.Parse(sql)
-// 	content := curd.Generate(pkg, statements)
-// 	writeFileTryFormat(output, filename, content)
-// }
 
 func isExists(path string) (bool, error) {
 	_, err := os.Stat(path)

@@ -1,3 +1,6 @@
+CREATE DATABASE IF NOT EXISTS `{{ project_name }}` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin */;
+USE `{{ project_name }}`;
+
 DROP TABLE IF EXISTS `tb_students`;
 CREATE TABLE `tb_students` (
     `id` INT NOT NULL AUTO_INCREMENT COMMENT 'ROW ID',

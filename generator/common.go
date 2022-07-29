@@ -36,10 +36,21 @@ func ToSnakeCase(s string) string {
 	return strings.Trim(snake, "_")
 }
 
+func ToStrikeCase(s string) string {
+	s = strings.ReplaceAll(s, "_", "-")
+	re := regexp.MustCompile(`[A-Z]`)
+	snake := re.ReplaceAllStringFunc(s, ToStrike)
+	return strings.Trim(snake, "-")
+}
+
 func ToUpper(s string) string {
 	return strings.ToUpper(s[1:])
 }
 
 func ToSnake(s string) string {
 	return "_" + strings.ToLower(s[:1])
+}
+
+func ToStrike(s string) string {
+	return "-" + strings.ToLower(s[:1])
 }

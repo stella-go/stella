@@ -16,8 +16,8 @@ logger:
 #   user: root
 #   passwd: root
 #   addr: 127.0.0.1:3306
-#   dbName: test
-#   collation: utf8_bin
+#   dbName: {{ project_name }}
+#   collation: utf8mb4_bin
 #   timeout: 100000
 #   readTimeout: 50000
 #   writeTimeout: 50000

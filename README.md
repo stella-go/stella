@@ -48,6 +48,10 @@ Usage:
         package name
   -round string
         round time [s/ms/μs]
+  -router
+        generate router
+  -service
+        generate service
 ```
 
 For example,

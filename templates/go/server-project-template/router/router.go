@@ -1,8 +1,13 @@
 package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"{{ project-name }}/service"
+	"github.com/gin-gonic/gin"
+)
 
-type HelloRouter struct{}
+type HelloRouter struct {
+	HelloService *service.HelloService
+}
 
 func (p *HelloRouter) Router() map[string]gin.HandlerFunc {
 	return map[string]gin.HandlerFunc{
@@ -11,5 +16,6 @@ func (p *HelloRouter) Router() map[string]gin.HandlerFunc {
 }
 
 func (p *HelloRouter) Hello(c *gin.Context) {
-	c.String(200, "Hello.")
+	s := p.HelloService.Hello()
+	c.String(200, s)
 }
