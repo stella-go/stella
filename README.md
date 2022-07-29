@@ -23,10 +23,13 @@ Conversion of SQL into structures and database operation templates
 
 ```bash
 Usage: 
-        stella generate -p model -i init.sql -o model -f model
+        stella generate -i init.sql -o model 
 
+  -asc string
+        order by
   -banner
         output banner (default true)
+  -c    generate curd (default true)
   -desc string
         reverse order by
   -f string
@@ -38,11 +41,11 @@ Usage:
         input sql file
   -logic string
         logic delete
-  -m    only generate models
+  -m    generate models (default true)
   -o string
         output dictionary
   -p string
-        package name (default "model")
+        package name
   -round string
         round time [s/ms/μs]
 ```
@@ -55,7 +58,7 @@ CREATE TABLE `tb_students` (
     `no` VARCHAR (32) COMMENT 'STUDENT NUMBER',
     `name` VARCHAR (64) COMMENT 'STUDENT NAME',
     `age` INT COMMENT 'STUDENT AGE',
-    `gender` VARCHAR (1) COMMENT 'STUDENT GENDER',
+    `gender` VARCHAR (1) DEFAULT NULL COMMENT 'STUDENT GENDER',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'CREATE TIME',
     `update_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'UPDATE TIME',
     PRIMARY KEY (`id`)
@@ -66,23 +69,19 @@ Run command `stella generate -p model -i init.sql -o model`, Will generate two f
 ```go
 package model
 
-/**
- * Auto Generate by github.com/stella-go/stella on 2022/06/24.
- */
-
 import (
 	"fmt"
 	"github.com/stella-go/siu/t/n"
 )
 
 type TbStudents struct {
-	Id         *n.Int    `json:"id"`
-	No         *n.String `json:"no"`
-	Name       *n.String `json:"name"`
-	Age        *n.Int    `json:"age"`
-	Gender     *n.String `json:"gender"`
-	CreateTime *n.Time   `json:"create_time"`
-	UpdateTime *n.Time   `json:"update_time"`
+	Id         *n.Int    `form:"id" json:"id,omitempty"`
+	No         *n.String `form:"no" json:"no,omitempty"`
+	Name       *n.String `form:"name" json:"name,omitempty"`
+	Age        *n.Int    `form:"age" json:"age,omitempty"`
+	Gender     *n.String `form:"gender" json:"gender,omitempty"`
+	CreateTime *n.Time   `form:"create_time" json:"create_time,omitempty"`
+	UpdateTime *n.Time   `form:"update_time" json:"update_time,omitempty"`
 }
 
 func (s *TbStudents) String() string {
@@ -92,15 +91,11 @@ func (s *TbStudents) String() string {
 ```go
 package model
 
-/**
- * Auto Generate by github.com/stella-go/stella on 2022/06/24.
- */
-
 import (
 	"database/sql"
 	"fmt"
+	"github.com/stella-go/siu/t"
 	"strings"
-	"time"
 )
 
 type DataSource interface {
@@ -110,25 +105,34 @@ type DataSource interface {
 }
 
 // ==================== TbStudents ====================
-func CreateTbStudents(db DataSource, s *TbStudents) error {
+func CreateTbStudents(db DataSource, s *TbStudents) (int64, error) {
 	if s == nil {
-		return fmt.Errorf("pointer can not be nil")
+		return 0, t.Error(fmt.Errorf("pointer can not be nil"))
 	}
-	SQL := "insert into `tb_students` (`no`, `name`, `age`, `gender`) values (?, ?, ?, ?)"
-	ret, err := db.Exec(SQL, s.No, s.Name, s.Age, s.Gender)
+	SQL := "insert into `tb_students` (%s) values (%s)"
+	columns := []string{"`no`", "`name`", "`age`"}
+	values := []string{"?", "?", "?"}
+	args := []interface{}{s.No, s.Name, s.Age}
+	if s.Gender != nil {
+		columns = append(columns, "`gender`")
+		values = append(values, "?")
+		args = append(args, s.Gender)
+	}
+	SQL = fmt.Sprintf(SQL, strings.Join(columns, ", "), strings.Join(values, ", "))
+	ret, err := db.Exec(SQL, args...)
 	if err != nil {
-		return err
+		return 0, t.Error(err)
 	}
 	_, err = ret.RowsAffected()
 	if err != nil {
-		return err
+		return 0, t.Error(err)
 	}
-	return nil
+	return ret.LastInsertId()
 }
 
 func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
 	if s == nil {
-		return fmt.Errorf("pointer can not be nil")
+		return t.Error(fmt.Errorf("pointer can not be nil"))
 	}
 	SQL := "update `tb_students` set %s where `id` = ?"
 	set := ""
@@ -158,25 +162,25 @@ func UpdateTbStudentsById(db DataSource, s *TbStudents) error {
 	args = append(args, s.Id)
 	ret, err := db.Exec(SQL, args...)
 	if err != nil {
-		return err
+		return t.Error(err)
 	}
 	_, err = ret.RowsAffected()
 	if err != nil {
-		return err
+		return t.Error(err)
 	}
 	return nil
 }
 
 func QueryTbStudentsById(db DataSource, s *TbStudents) (*TbStudents, error) {
 	if s == nil {
-		return nil, fmt.Errorf("pointer can not be nil")
+		return nil, t.Error(fmt.Errorf("pointer can not be nil"))
 	}
 	SQL := "select `id`, `no`, `name`, `age`, `gender`, `create_time`, `update_time` from `tb_students` where `id` = ?"
 	ret := &TbStudents{}
 	err := db.QueryRow(SQL, s.Id).Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return nil, err
+			return nil, t.Error(err)
 		}
 		return nil, nil
 	}
@@ -216,11 +220,11 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 		}
 		if s.CreateTime != nil {
 			where += "and `create_time` = ? "
-			args = append(args, s.CreateTime.Round(time.Second))
+			args = append(args, s.CreateTime)
 		}
 		if s.UpdateTime != nil {
 			where += "and `update_time` = ? "
-			args = append(args, s.UpdateTime.Round(time.Second))
+			args = append(args, s.UpdateTime)
 		}
 		where = strings.TrimLeft(where, "and")
 		where = strings.TrimSpace(where)
@@ -233,13 +237,13 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 	count := 0
 	err := db.QueryRow(SQL1, args...).Scan(&count)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, t.Error(err)
 	}
 	args = append(args, (page-1)*size, size)
 	rows, err := db.Query(SQL2, args...)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return 0, nil, err
+			return 0, nil, t.Error(err)
 		}
 	}
 	defer rows.Close()
@@ -249,7 +253,7 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 		ret := &TbStudents{}
 		err = rows.Scan(&ret.Id, &ret.No, &ret.Name, &ret.Age, &ret.Gender, &ret.CreateTime, &ret.UpdateTime)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, t.Error(err)
 		}
 		results = append(results, ret)
 	}
@@ -258,16 +262,16 @@ func QueryManyTbStudents(db DataSource, s *TbStudents, page int, size int) (int,
 
 func DeleteTbStudentsById(db DataSource, s *TbStudents) error {
 	if s == nil {
-		return fmt.Errorf("pointer can not be nil")
+		return t.Error(fmt.Errorf("pointer can not be nil"))
 	}
 	SQL := "delete from `tb_students` where `id` = ?"
 	ret, err := db.Exec(SQL, s.Id)
 	if err != nil {
-		return err
+		return t.Error(err)
 	}
 	_, err = ret.RowsAffected()
 	if err != nil {
-		return err
+		return t.Error(err)
 	}
 	return nil
 }
