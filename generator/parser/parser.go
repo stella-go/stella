@@ -111,7 +111,10 @@ func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext)
 			column.PrimaryKey = true
 		case *UniqKey:
 			column.UniqueKey = true
+		case *DefaultValue:
+			column.DefaultValue = true
 		case *CurrentTimestamp:
+			column.DefaultValue = true
 			column.CurrentTimestamp = true
 		case *NotNull:
 			column.NotNull = true
@@ -168,7 +171,11 @@ func (v *MysqlVisitor) VisitUniqueKeyColumnConstraint(ctx *mysql.UniqueKeyColumn
 }
 
 func (v *MysqlVisitor) VisitDefaultColumnConstraint(ctx *mysql.DefaultColumnConstraintContext) interface{} {
-	return ctx.DefaultValue().Accept(v)
+	if c := ctx.DefaultValue().Accept(v); c != nil {
+		return c
+	} else {
+		return &DefaultValue{}
+	}
 }
 
 func (v *MysqlVisitor) VisitDefaultValue(ctx *mysql.DefaultValueContext) interface{} {

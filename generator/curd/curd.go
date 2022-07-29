@@ -102,38 +102,64 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, logic str
 
 func c(statement *parser.Statement, round string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	columnNames := make([]string, 0)
-	placeHolder := make([]string, 0)
+	columns := make([]string, 0)
+	values := make([]string, 0)
 	args := make([]string, 0)
 	for _, col := range statement.Columns {
-		if col.AutoIncrement || col.CurrentTimestamp {
+		if col.AutoIncrement || col.CurrentTimestamp || col.DefaultValue {
 			continue
 		}
-		columnNames = append(columnNames, "`"+col.ColumnName.Name+"`")
-		placeHolder = append(placeHolder, "?")
-		arg := "s." + generator.FirstUpperCamelCase(col.ColumnName.Name)
+		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+		columns = append(columns, "\"`"+col.ColumnName.Name+"`\"")
+		values = append(values, "\"?\"")
+		arg := "s." + fieldName
 		if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
 			arg = arg + ".Round(" + round + ")"
 		}
 		args = append(args, arg)
 	}
-	SQL := fmt.Sprintf("insert into `%s` (%s) values (%s)", statement.TableName.Name, strings.Join(columnNames, ", "), strings.Join(placeHolder, ", "))
-	funcLines := fmt.Sprintf(`func Create%s(db DataSource, s *%s) error {
+	insert := fmt.Sprintf(`columns := []string{%s}
+    values := []string{%s}
+    args := []interface{}{%s}
+`, strings.Join(columns, ", "), strings.Join(values, ", "), strings.Join(args, ", "))
+	for _, col := range statement.Columns {
+		if col.AutoIncrement || col.CurrentTimestamp {
+			continue
+		}
+		if col.DefaultValue {
+			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
+			arg := "s." + fieldName
+			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {
+				arg = arg + ".Round(" + round + ")"
+			}
+			insert += fmt.Sprintf(`    if s.%s != nil {
+        columns = append(columns, "%s")
+        values = append(values, "?")
+        args = append(args, %s)
+    }
+`, fieldName, "`"+col.ColumnName.Name+"`", arg)
+		}
+	}
+	insert += `    SQL = fmt.Sprintf(SQL, strings.Join(columns, ", "), strings.Join(values, ", "))`
+
+	SQL := fmt.Sprintf("insert into `%s` (%%s) values (%%s)", statement.TableName.Name)
+	funcLines := fmt.Sprintf(`func Create%s(db DataSource, s *%s) (int64, error) {
     if s == nil {
-        return t.Error(fmt.Errorf("pointer can not be nil"))
+        return 0, t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
-    ret, err := db.Exec(SQL, %s)
+    %s
+    ret, err := db.Exec(SQL, args...)
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
     _, err = ret.RowsAffected()
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
-    return nil
+    return ret.LastInsertId()
 }
-`, modelName, modelName, SQL, strings.Join(args, ", "))
+`, modelName, modelName, SQL, insert)
 	return funcLines, nil
 }
 
@@ -188,7 +214,7 @@ func u(statement *parser.Statement, round string) (string, []string) {
     }
     SQL := "%s"
     %s
-	args = append(args, %s)
+    args = append(args, %s)
     ret, err := db.Exec(SQL, args...)
     if err != nil {
         return t.Error(err)

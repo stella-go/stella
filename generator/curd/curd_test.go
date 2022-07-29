@@ -15,7 +15,7 @@ create table tb_dept(
 	-- abc
     id int auto_increment,#部门编号 整形 主键 自增长
     DePt_name varchar(18),#部门名称
-    description varchar(100),#描述 /*  xxx */
+    description varchar(100) DEFAULT NULL,#描述 /*  xxx */
 	status tinyint,
 primary key(Id)
 );

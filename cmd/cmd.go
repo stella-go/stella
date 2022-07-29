@@ -39,21 +39,22 @@ func Generate() {
 stella An efficient development tool. %s
 
 Usage: 
-	stella generate -p model -i init.sql -o model -f model
+	stella generate -i init.sql -o model 
 
 `, version.VERSION)
 		flageSet.PrintDefaults()
 	}
-	p := flageSet.String("p", "model", "package name")
+	p := flageSet.String("p", "", "package name")
 	i := flageSet.String("i", "", "input sql file")
 	o := flageSet.String("o", "", "output dictionary")
 	f := flageSet.String("f", "", "output file name")
-	banner := flageSet.Bool("banner", true, "output banner")
-	m := flageSet.Bool("m", false, "only generate models")
-	logic := flageSet.String("logic", "", "logic delete")
+	m := flageSet.Bool("m", true, "generate models")
+	c := flageSet.Bool("c", true, "generate curd")
 	asc := flageSet.String("asc", "", "order by")
 	desc := flageSet.String("desc", "", "reverse order by")
+	logic := flageSet.String("logic", "", "logic delete")
 	round := flageSet.String("round", "", "round time [s/ms/μs]")
+	banner := flageSet.Bool("banner", true, "output banner")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -61,7 +62,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f, *banner, *m, *logic, *asc, *desc, *round)
+	generate(*p, *i, *o, *f, *banner, *m, *c, *logic, *asc, *desc, *round)
 }
 
 func readFileWithStdin(input string) string {
@@ -86,20 +87,29 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string, banner bool, onlymodel bool, logic string, asc string, desc string, round string) {
+func generate(pkg string, input string, output string, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string) {
+	if pkg == "" {
+		if output == "" {
+			pkg = "model"
+		} else {
+			pkg = output
+		}
+	}
 	if file == "" {
 		file = pkg
 	}
 	sql := readFileWithStdin(input)
 	statements := parser.Parse(sql)
 
-	filename := file + "_auto.go"
-	content := model.Generate(pkg, statements, banner)
-	writeFileTryFormat(output, filename, content)
+	if m {
+		filename := file + "_auto.go"
+		content := model.Generate(pkg, statements, banner)
+		writeFileTryFormat(output, filename, content)
+	}
 
-	if !onlymodel {
-		filename = pkg + "_auto_curd.go"
-		content = curd.Generate(pkg, statements, banner, logic, asc, desc, round)
+	if c {
+		filename := pkg + "_auto_curd.go"
+		content := curd.Generate(pkg, statements, banner, logic, asc, desc, round)
 		writeFileTryFormat(output, filename, content)
 	}
 }

@@ -11,7 +11,7 @@ clean:
 	@rm -rf target vendor
 
 .build-docker:
-	@docker build --build-arg GO_VERSION=${GO_VERSION} -t ${IMAGE_NAME} . && touch .build-docker
+	@docker build  --memory-swap -1 --build-arg GO_VERSION=${GO_VERSION} -t ${IMAGE_NAME} . && touch .build-docker
 
 vendor:
 	go mod vendor

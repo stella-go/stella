@@ -46,17 +46,19 @@ type ColumnDefinition struct {
 	UniqueKey        bool
 	AutoIncrement    bool
 	NotNull          bool
+	DefaultValue     bool
 	CurrentTimestamp bool
 }
 
 func (p *ColumnDefinition) String() string {
-	return fmt.Sprintf("ColumnDefinition{ ColumnName: %v, Type: %v, PrimaryKey: %v, UniqKey: %v, AutoIncrement: %v, NotNull: %v, CurrentTimestamp: %v}",
+	return fmt.Sprintf("ColumnDefinition{ ColumnName: %v, Type: %v, PrimaryKey: %v, UniqKey: %v, AutoIncrement: %v, NotNull: %v, DefaultValue: %v, CurrentTimestamp: %v}",
 		p.ColumnName,
 		p.Type,
 		p.PrimaryKey,
 		p.UniqueKey,
 		p.AutoIncrement,
 		p.NotNull,
+		p.DefaultValue,
 		p.CurrentTimestamp,
 	)
 }
@@ -77,6 +79,7 @@ type IndexKey struct{}
 
 type NotNull struct{}
 
+type DefaultValue struct{}
 type CurrentTimestamp struct{}
 
 type Statement struct {

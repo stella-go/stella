@@ -87,8 +87,8 @@ github.com/rogpeppe/go-internal v1.8.0 h1:FCbCCtXNOY3UtUuHUYaghJg4y7Fd14rXifAYUA
 github.com/rogpeppe/go-internal v1.8.0/go.mod h1:WmiCO8CzOY8rg0OYDC4/i/2WRWAB6poM+XZ2dLUbcbE=
 github.com/stella-go/logger v1.0.5 h1:K9jPZ3L8Ac+B80ovSmTwOtEcJ2qWKnvrSR90aztkQGA=
 github.com/stella-go/logger v1.0.5/go.mod h1:dpXD/j8QXXS75uoLhZfKfXFTNbWBlJ/14jUgrFZ32hs=
-github.com/stella-go/siu v1.2.1 h1:DSAwFDD1gZ4SA7gqqeK1owAvcQ9GGZW6t+M+j3uj02c=
-github.com/stella-go/siu v1.2.1/go.mod h1:cag23KfXkIrO+bGJxGMHeTtET+fqo0Dgs/nL6v72QMs=
+github.com/stella-go/siu v1.2.2 h1:snMsWMTOeJDoOh6+d2WDbsfcAcYZ6Y7oGGu3JG1htAY=
+github.com/stella-go/siu v1.2.2/go.mod h1:cag23KfXkIrO+bGJxGMHeTtET+fqo0Dgs/nL6v72QMs=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
