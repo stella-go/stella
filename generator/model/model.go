@@ -22,6 +22,7 @@ import (
 	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
+	"github.com/stella-go/stella/version"
 )
 
 var (
@@ -114,7 +115,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 	}
 	bannerS := ""
 	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
+		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
 
 	}
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), strings.Join(structs, "\n"))

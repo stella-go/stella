@@ -22,6 +22,7 @@ import (
 	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
+	"github.com/stella-go/stella/version"
 )
 
 func Generate(pkg string, statements []*parser.Statement, banner bool) string {
@@ -29,7 +30,6 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 	functions := make([]string, 0)
 	routers := make([]string, 0)
 
-	importsMap["io"] = common.Null
 	importsMap["github.com/gin-gonic/gin"] = common.Null
 	importsMap["github.com/stella-go/siu"] = common.Null
 	importsMap["github.com/stella-go/siu/t"] = common.Null
@@ -82,8 +82,7 @@ func (p *Router) Router() map[string]gin.HandlerFunc {
 }`
 	bannerS := ""
 	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella on %s.\n */\n", time.Now().Format("2006/01/02"))
-
+		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
 	}
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
 }
@@ -157,7 +156,7 @@ func r(statement *parser.Statement) (string, []string, string) {
     }
     request := &t.RequestBean[*Pageable]{}
     err := c.ShouldBind(request)
-    if err != nil && err != io.EOF {
+    if err != nil {
         siu.ERROR("__LINE__ bad request:", err)
         c.JSON(200, t.FailWith(400, "bad request"))
         return
