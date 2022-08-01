@@ -107,7 +107,7 @@ func c(statement *parser.Statement) (string, []string, string) {
     err = p.Service.Create%s(s)
     if err != nil {
         siu.ERROR("__LINE__ create %s error:", err)
-        c.JSON(200, t.FailWith(400, "bad request"))
+        c.JSON(200, t.FailWith(500, "system error"))
     } else {
         c.JSON(200, t.Success())
     }
@@ -136,7 +136,7 @@ func u(statement *parser.Statement) (string, []string, string) {
     err = p.Service.Update%s(s)
     if err != nil {
         siu.ERROR("__LINE__ update %s error:", err)
-        c.JSON(200, t.FailWith(400, "bad request"))
+        c.JSON(200, t.FailWith(500, "system error"))
     } else {
         c.JSON(200, t.Success())
     }
@@ -182,7 +182,7 @@ func r(statement *parser.Statement) (string, []string, string) {
     count, list, err := p.Service.Query%s(s, page, size)
     if err != nil {
         siu.ERROR("__LINE__ query %s error:", err)
-        c.JSON(200, t.FailWith(500, "bad request"))
+        c.JSON(200, t.FailWith(500, "system error"))
     } else {
         c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
     }
@@ -211,7 +211,7 @@ func d(statement *parser.Statement) (string, []string, string) {
     err = p.Service.Delete%s(s)
     if err != nil {
         siu.ERROR("__LINE__ update %s error:", err)
-        c.JSON(200, t.FailWith(500, "bad request"))
+        c.JSON(200, t.FailWith(500, "system error"))
     } else {
         c.JSON(200, t.Success())
     }
