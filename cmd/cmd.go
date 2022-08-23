@@ -97,35 +97,35 @@ func generate(pkg string, input string, output string, file string, banner bool,
 	statements := parser.Parse(sql)
 
 	if onlyRouter {
-		p, f, o := fill(pkg, output, file, "router")
+		p, f := fill(pkg, output, file, "router")
 		filename := f + "_auto.go"
 		content := router.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(output, filename, content)
 	}
 
 	if onlyService {
-		p, f, o := fill(pkg, output, file, "service")
+		p, f := fill(pkg, output, file, "service")
 		filename := f + "_auto.go"
 		content := service.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(output, filename, content)
 	}
 
 	if m {
-		p, f, o := fill(pkg, output, file, "model")
+		p, f := fill(pkg, output, file, "model")
 		filename := f + "_auto.go"
 		content := model.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(output, filename, content)
 	}
 
 	if c {
-		p, f, o := fill(pkg, output, file, "model")
+		p, f := fill(pkg, output, file, "model")
 		filename := f + "_curd_auto.go"
 		content := curd.Generate(p, statements, banner, logic, asc, desc, round)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(output, filename, content)
 	}
 }
 
-func fill(pkg string, output string, file string, defaultValue string) (string, string, string) {
+func fill(pkg string, output string, file string, defaultValue string) (string, string) {
 	if pkg == "" {
 		if output == "" {
 			pkg = defaultValue
@@ -136,7 +136,7 @@ func fill(pkg string, output string, file string, defaultValue string) (string, 
 	if file == "" {
 		file = pkg
 	}
-	return pkg, file, defaultValue
+	return pkg, file
 }
 
 func isExists(path string) (bool, error) {
