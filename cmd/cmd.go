@@ -49,17 +49,18 @@ Usage:
 	p := flageSet.String("p", "", "package name")
 	i := flageSet.String("i", "", "input sql file")
 	o := flageSet.String("o", "", "output dictionary")
+	std := flageSet.Bool("std", false, "stdout print")
 	f := flageSet.String("f", "", "output file name")
 	m := flageSet.Bool("m", true, "generate models")
 	c := flageSet.Bool("c", true, "generate curd")
 	asc := flageSet.String("asc", "", "order by")
 	desc := flageSet.String("desc", "", "reverse order by")
 	logic := flageSet.String("logic", "", "logic delete")
-	round := flageSet.String("round", "", "round time [s/ms/μs]")
+	round := flageSet.String("round", "s", "round time [s/ms/μs]")
 	banner := flageSet.Bool("banner", true, "output banner")
 
-	router := flageSet.Bool("router", false, "generate router")
-	service := flageSet.Bool("service", false, "generate service")
+	generateRouter := flageSet.Bool("router", false, "generate router")
+	generateService := flageSet.Bool("service", false, "generate service")
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -67,7 +68,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *router, *service)
+	generate(*p, *i, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService)
 }
 
 func readFileWithStdin(input string) string {
@@ -92,50 +93,49 @@ func readFileWithStdin(input string) string {
 	return sql
 }
 
-func generate(pkg string, input string, output string, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, onlyRouter bool, onlyService bool) {
+func generate(pkg string, input string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool) {
 	sql := readFileWithStdin(input)
 	statements := parser.Parse(sql)
 
-	if onlyRouter {
+	if generateRouter {
 		p, f, o := fill(pkg, output, file, "router")
 		filename := f + "_auto.go"
 		content := router.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(std, o, filename, content)
 	}
 
-	if onlyService {
+	if generateService {
 		p, f, o := fill(pkg, output, file, "service")
 		filename := f + "_auto.go"
 		content := service.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(std, o, filename, content)
 	}
 
 	if m {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_auto.go"
 		content := model.Generate(p, statements, banner)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(std, o, filename, content)
 	}
 
 	if c {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_curd_auto.go"
 		content := curd.Generate(p, statements, banner, logic, asc, desc, round)
-		writeFileTryFormat(o, filename, content)
+		writeFileTryFormat(std, o, filename, content)
 	}
 }
 
 func fill(pkg string, output string, file string, defaultValue string) (string, string, string) {
-	o := path.Base(output)
-	if pkg == "" {
-		if o == "" || o == "." {
-			pkg = defaultValue
-		} else {
-			pkg = o
-		}
+	if output == "" {
+		output = defaultValue
 	}
 	if file == "" {
-		file = pkg
+		file = defaultValue
+	}
+	base := path.Base(output)
+	if pkg == "" {
+		pkg = base
 	}
 	return pkg, file, output
 }
@@ -151,8 +151,8 @@ func isExists(path string) (bool, error) {
 	return false, err
 }
 
-func writeFileTryFormat(output string, filename string, content string) {
-	if output == "" || filename == "" {
+func writeFileTryFormat(std bool, output string, filename string, content string) {
+	if std || output == "" || filename == "" {
 		fmt.Println(content)
 	} else {
 		exist, err := isExists(output)
