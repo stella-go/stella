@@ -69,7 +69,7 @@ func (s *Struct) String() string {
 	for _, field := range s.fields {
 		lines = append(lines, "\t"+field.String())
 	}
-	return fmt.Sprintf("type %s struct {\n%s\n}\n%s", s.name, strings.Join(lines, "\n"), s.toString())
+	return fmt.Sprintf("// ==================== %s ====================\ntype %s struct {\n%s\n}\n%s", s.name, s.name, strings.Join(lines, "\n"), s.toString())
 }
 
 func (s *Struct) toString() string {
