@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/stella-go/stella/creator/proj"
@@ -46,21 +47,27 @@ Usage:
 `, version.VERSION)
 		flageSet.PrintDefaults()
 	}
-	p := flageSet.String("p", "", "package name")
 	i := flageSet.String("i", "", "input sql file")
-	o := flageSet.String("o", "", "output dictionary")
+	sub := flageSet.String("sub", "", "sql subset")
+
 	std := flageSet.Bool("std", false, "stdout print")
+	o := flageSet.String("o", "", "output dictionary")
 	f := flageSet.String("f", "", "output file name")
+	p := flageSet.String("p", "", "package name")
+
 	m := flageSet.Bool("m", true, "generate models")
+
 	c := flageSet.Bool("c", true, "generate curd")
 	asc := flageSet.String("asc", "", "order by")
 	desc := flageSet.String("desc", "", "reverse order by")
 	logic := flageSet.String("logic", "", "logic delete")
 	round := flageSet.String("round", "s", "round time [s/ms/μs]")
-	banner := flageSet.Bool("banner", true, "output banner")
 
 	generateRouter := flageSet.Bool("router", false, "generate router")
 	generateService := flageSet.Bool("service", false, "generate service")
+
+	banner := flageSet.Bool("banner", true, "output banner")
+
 	h := flageSet.Bool("h", false, "print help info")
 	help := flageSet.Bool("help", false, "print help info")
 	flageSet.Parse(os.Args[2:])
@@ -68,10 +75,10 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService)
+	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService)
 }
 
-func readFileWithStdin(input string) string {
+func readFileWithStdin(input string, sub string) string {
 	sql := ""
 	if input == "" {
 		scanner := bufio.NewScanner(os.Stdin)
@@ -90,12 +97,69 @@ func readFileWithStdin(input string) string {
 		}
 		sql = string(sqlBytes)
 	}
+	if sub != "" {
+		split := strings.Split(strings.TrimSpace(sub), ",")
+		start, end := 0, 0x7FFFFFFF
+		if len(split) == 1 {
+			n, err := strconv.Atoi(split[0])
+			if err != nil {
+				printError("parse subset error", err)
+				return sql
+			}
+			start, end = n, n
+		} else {
+			if split[0] == "" {
+				n, err := strconv.Atoi(split[1])
+				if err != nil {
+					printError("parse subset error", err)
+					return sql
+				}
+				end = n
+			} else if split[1] == "" {
+				m, err := strconv.Atoi(split[0])
+				if err != nil {
+					printError("parse subset error", err)
+					return sql
+				}
+				start = m
+			} else {
+				m, err := strconv.Atoi(split[0])
+				if err != nil {
+					printError("parse subset error", err)
+					return sql
+				}
+				start = m
+				n, err := strconv.Atoi(split[1])
+				if err != nil {
+					printError("parse subset error", err)
+					return sql
+				}
+				end = n
+			}
+
+		}
+		lines := strings.Split(sql, "\n")
+		if start < 1 {
+			start = 1
+		}
+		if end > len(lines)+1 {
+			end = len(lines) + 1
+		}
+		lines = lines[start-1 : end-1]
+		for i, line := range lines {
+			fmt.Printf("%-4d %s\n", start+i, line)
+		}
+		sql = strings.Join(lines, "\n")
+	}
 	return sql
 }
 
-func generate(pkg string, input string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool) {
-	sql := readFileWithStdin(input)
+func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool) {
+	sql := readFileWithStdin(input, sub)
 	statements := parser.Parse(sql)
+	if len(statements) == 0 {
+		return
+	}
 
 	if generateRouter {
 		p, f, o := fill(pkg, output, file, "router")
@@ -282,5 +346,5 @@ func fillLine(roots []string, includes []string, ignores []string, shortName boo
 }
 
 func printError(message string, err error) {
-	fmt.Fprintf(os.Stderr, message+": %v", err)
+	fmt.Fprintf(os.Stderr, message+": %v\n", err)
 }

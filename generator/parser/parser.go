@@ -244,6 +244,9 @@ func (v *MysqlVisitor) VisitIndexColumnName(ctx *mysql.IndexColumnNameContext) i
 }
 
 func Parse(sql string) []*Statement {
+	if sql == "" {
+		return nil
+	}
 	SQL := strings.ToUpper(sql)
 	is := antlr.NewInputStream(SQL)
 	lexer := mysql.NewMySqlLexer(is)
