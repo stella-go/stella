@@ -103,7 +103,15 @@ fi
 if ! $GO generate ; then
     echo "Build Generate failed."
 fi
-if ! GOOS=linux GOARCH=amd64 $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
+
+if [ -z "${GOOS}" ];then
+  GOOS="linux"
+fi
+if [ -z "${GOARCH}" ];then
+   GOARCH="amd64"
+fi
+
+if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi

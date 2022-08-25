@@ -1,11 +1,13 @@
 PWD=$(shell pwd)
 GO_VERSION=1.18.4
 IMAGE_NAME=stella-go/go:${GO_VERSION}
+GOOS="linux" 
+GOARCH="amd64"
 
 .PHONY: all
 
 all: .build-docker vendor
-	@docker run --rm -v $(PWD):/src -w /src ${IMAGE_NAME} ./build.sh
+	@docker run --rm -v $(PWD):/src -w /src ${IMAGE_NAME} sh -c "GOOS=${GOOS} GOARCH=${GOARCH} ./build.sh"
 
 clean:
 	@rm -rf target vendor
