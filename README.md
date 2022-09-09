@@ -47,11 +47,15 @@ Usage:
   -p string
         package name
   -round string
-        round time [s/ms/μs]
+        round time [s/ms/μs] (default "s")
   -router
         generate router
   -service
         generate service
+  -std
+        stdout print
+  -sub string
+        sql subset
 ```
 
 For example,
