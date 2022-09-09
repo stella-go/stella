@@ -1,5 +1,5 @@
 PWD=$(shell pwd)
-GO_VERSION=1.18.4
+GO_VERSION=1.18.6
 IMAGE_NAME=stella-go/go:${GO_VERSION}
 GOOS="linux" 
 GOARCH="amd64"
@@ -13,7 +13,7 @@ clean:
 	@rm -rf target vendor
 
 .build-docker:
-	@docker build  --memory-swap -1 --build-arg GO_VERSION=${GO_VERSION} -t ${IMAGE_NAME} . && touch .build-docker
+	@docker build  --memory-swap -1 --build-arg GO_VERSION=${GO_VERSION} -t ${IMAGE_NAME} . && echo > .build-docker
 
 vendor:
 	go mod vendor

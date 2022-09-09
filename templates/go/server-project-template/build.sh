@@ -50,38 +50,38 @@ TARGET="${PROJECT_DIR}/target"
 rm -rf "$TARGET"
 
 ASSEMBLY="${TARGET}/${APPLICATION}"
-mkdir -p "${ASSEMBLY}" "${ASSEMBLY}"/bin "${ASSEMBLY}"/config "${ASSEMBLY}"/resources "${ASSEMBLY}"/lib
+mkdir -p "${ASSEMBLY}" "${ASSEMBLY}/bin" "${ASSEMBLY}/config" "${ASSEMBLY}/resources" "${ASSEMBLY}/lib"
 
 echo "Building copy files..."
 
 if [ -d "$CONFIG_DIR" ]; then
   FILES=$(ls "${CONFIG_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rfL "${CONFIG_DIR}"/* "${ASSEMBLY}"/config
+    cp -rfL "${CONFIG_DIR}"/* "${ASSEMBLY}/config"
   fi
 fi
 if [ -d "$PROFILE_DIR" ]; then
   FILES=$(ls "${PROFILE_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rfL "${PROFILE_DIR}"/* "${ASSEMBLY}"/config
+    cp -rfL "${PROFILE_DIR}"/* "${ASSEMBLY}/config"
   fi
 fi
 if [ -d "$RESOURCES_DIR" ]; then
   FILES=$(ls "${RESOURCES_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rfL "${RESOURCES_DIR}"/* "${ASSEMBLY}"/resources
+    cp -rfL "${RESOURCES_DIR}"/* "${ASSEMBLY}/resources"
   fi
 fi
 if [ -d "$LIBS_DIR" ]; then
   FILES=$(ls "${LIBS_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rfL "${LIBS_DIR}"/* "${ASSEMBLY}"/lib
+    cp -rfL "${LIBS_DIR}"/* "${ASSEMBLY}/lib"
   fi
 fi
 if [ -d "$SCRIPTS_DIR" ]; then
   FILES=$(ls "${SCRIPTS_DIR}")
   if [ -n "${FILES}" ]; then
-    cp -rfL "${SCRIPTS_DIR}"/* "${ASSEMBLY}"/bin
+    cp -rfL "${SCRIPTS_DIR}"/* "${ASSEMBLY}/bin"
   fi
 fi
 
@@ -92,7 +92,7 @@ if [ -z "${GOPATH}" ]; then
 fi
 
 if [ -n "${GOROOT}" ];then
-  GO=${GOROOT}/bin/go
+  GO="${GOROOT}/bin/go"
 else
   GO=$(which go)
 fi
@@ -111,14 +111,14 @@ if [ -z "${GOARCH}" ];then
    GOARCH="amd64"
 fi
 
-if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -o "${ASSEMBLY}"/bin/"${APPLICATION}" . ; then
+if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi
 chmod -R a+x "${ASSEMBLY}"/bin
 echo "Building zip..."
 cd "${TARGET}" || exit
-zip -qry "${APPLICATION}".zip "${APPLICATION}" || exit 1
+zip -qry "${APPLICATION}.zip" "${APPLICATION}" || exit 1
 
 echo "Build success. Assembly is ${ASSEMBLY}.zip"
 
