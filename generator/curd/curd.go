@@ -370,6 +370,7 @@ func r(statement *parser.Statement, asc string, desc string, round string) (stri
         if err != sql.ErrNoRows {
             return 0, nil, t.Error(err)
         }
+		return 0, nil, nil
     }
     defer rows.Close()
 
@@ -436,6 +437,7 @@ func r(statement *parser.Statement, asc string, desc string, round string) (stri
         if err != sql.ErrNoRows {
             return 0, nil, t.Error(err)
         }
+		return 0, nil, nil
     }
     defer rows.Close()
 

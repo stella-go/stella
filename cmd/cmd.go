@@ -234,6 +234,31 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 			}
 		}
 		fullPath := path.Join(output, filename)
+		exist, err = isExists(fullPath)
+		if err != nil {
+			printError("read outputh file error", err)
+			fmt.Println(content)
+			return
+		}
+		if exist {
+			fmt.Printf("output file \"%s\" exists, do you want to remove it? [y/N] ", fullPath)
+			reader := bufio.NewReader(os.Stdin)
+			answer, _ := reader.ReadString('\n')
+			answer = strings.TrimSpace(answer)
+			if answer == "" || answer == "N" || answer == "n" {
+				fmt.Println(content)
+				return
+			}
+			if answer == "Y" || answer == "y" {
+				err := os.RemoveAll(fullPath)
+				if err != nil {
+					printError("remove outputh path error", err)
+					fmt.Println(content)
+					return
+				}
+			}
+		}
+
 		err = ioutil.WriteFile(fullPath, []byte(content), 0644)
 		if err != nil {
 			printError("write file error", err)
@@ -287,7 +312,22 @@ func createProj(language string, stype string, name string, output string) {
 		printError("read project path error", err)
 		return
 	}
-	if !exist {
+	if exist {
+		fmt.Print("project path exists, do you want to remove it? [y/N] ")
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		answer = strings.TrimSpace(answer)
+		if answer == "" || answer == "N" || answer == "n" {
+			return
+		}
+		if answer == "Y" || answer == "y" {
+			err := os.RemoveAll(projDir)
+			if err != nil {
+				printError("remove outputh path error", err)
+				return
+			}
+		}
+	} else {
 		err := os.MkdirAll(projDir, 0755)
 		if err != nil {
 			printError("create project path error", err)
