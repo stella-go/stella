@@ -111,7 +111,7 @@ if [ -z "${GOARCH}" ];then
    GOARCH="amd64"
 fi
 
-if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
+if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi
