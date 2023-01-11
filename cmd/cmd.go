@@ -1,4 +1,4 @@
-// Copyright 2010-2022 the original author or authors.
+// Copyright 2010-2023 the original author or authors.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,8 @@ Usage:
 	generateRouter := flageSet.Bool("router", false, "generate router")
 	generateService := flageSet.Bool("service", false, "generate service")
 
+	panicStyle := flageSet.Bool("panic", false, "panic style")
+
 	banner := flageSet.Bool("banner", true, "output banner")
 
 	h := flageSet.Bool("h", false, "print help info")
@@ -75,7 +77,7 @@ Usage:
 		flageSet.Usage()
 		return
 	}
-	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService)
+	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService, *panicStyle)
 }
 
 func readFileWithStdin(input string, sub string) string {
@@ -154,7 +156,7 @@ func readFileWithStdin(input string, sub string) string {
 	return sql
 }
 
-func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool) {
+func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool, panicStyle bool) {
 	sql := readFileWithStdin(input, sub)
 	statements := parser.Parse(sql)
 	if len(statements) == 0 {
@@ -164,14 +166,26 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if generateRouter {
 		p, f, o := fill(pkg, output, file, "router")
 		filename := f + "_auto.go"
-		content := router.Generate(p, statements, banner)
+		content := func() string {
+			if panicStyle {
+				return router.GeneratePanic(p, statements, banner)
+			} else {
+				return router.Generate(p, statements, banner)
+			}
+		}()
 		writeFileTryFormat(std, o, filename, content)
 	}
 
 	if generateService {
 		p, f, o := fill(pkg, output, file, "service")
 		filename := f + "_auto.go"
-		content := service.Generate(p, statements, banner)
+		content := func() string {
+			if panicStyle {
+				return service.GeneratePanic(p, statements, banner)
+			} else {
+				return service.Generate(p, statements, banner)
+			}
+		}()
 		writeFileTryFormat(std, o, filename, content)
 	}
 
@@ -185,7 +199,13 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if c {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_curd_auto.go"
-		content := curd.Generate(p, statements, banner, logic, asc, desc, round)
+		content := func() string {
+			if panicStyle {
+				return curd.GeneratePanic(p, statements, banner, logic, asc, desc, round)
+			} else {
+				return curd.Generate(p, statements, banner, logic, asc, desc, round)
+			}
+		}()
 		writeFileTryFormat(std, o, filename, content)
 	}
 }
