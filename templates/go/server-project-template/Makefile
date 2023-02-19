@@ -1,5 +1,5 @@
 PWD=$(shell pwd)
-GO_VERSION=1.18.6
+GO_VERSION=1.19.6
 IMAGE_NAME=stella-go/go:${GO_VERSION}
 GOOS="linux" 
 GOARCH="amd64"

@@ -333,7 +333,7 @@ func createProj(language string, stype string, name string, output string) {
 		return
 	}
 	if exist {
-		fmt.Print("project path exists, do you want to remove it? [y/N] ")
+		fmt.Printf("project path \"%s\" exists, do you want to remove it? [y/N] ", projDir)
 		reader := bufio.NewReader(os.Stdin)
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(answer)
