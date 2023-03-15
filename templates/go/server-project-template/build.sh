@@ -111,9 +111,13 @@ if [ -z "${GOARCH}" ];then
    GOARCH="amd64"
 fi
 
-if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
+if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -ldflags="-s -w" -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
+fi
+
+if ! upx -V > /dev/null ; then
+    upx "${ASSEMBLY}/bin/${APPLICATION}"
 fi
 chmod -R a+x "${ASSEMBLY}"/bin
 echo "Building zip..."
