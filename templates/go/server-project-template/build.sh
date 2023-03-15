@@ -4,12 +4,11 @@
 # Usage: build.sh [dev|beta|product]
 #
 
-echo "Building..."
+echo "Building ..."
 
 PROJECT_DIR=$(dirname "$0")
 cd "${PROJECT_DIR}" || exit 1
 PROJECT_DIR=$(pwd)
-echo "Project dir: ${PROJECT_DIR}"
 PROFILE="product"
 if [ -n "$1" ]; then
   PROFILE=$1
@@ -44,7 +43,7 @@ if [ -z "${VERSION}" ]; then
   exit 1
 fi
 
-echo "Building AppName: ${APPLICATION} ${VERSION}"
+echo "Building app name: ${APPLICATION} ${VERSION}"
 
 TARGET="${PROJECT_DIR}/target"
 rm -rf "$TARGET"
@@ -116,8 +115,9 @@ if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -ldflags="-s -w" -o "
     exit 1
 fi
 
-if ! upx -V > /dev/null ; then
-    upx "${ASSEMBLY}/bin/${APPLICATION}"
+if upx -V > /dev/null 2>&1 ; then
+    upx -q -o "${ASSEMBLY}/bin/${APPLICATION}" "${ASSEMBLY}/bin/${APPLICATION}" > /dev/null 2>&1
+    echo "Building upx compress success"
 fi
 chmod -R a+x "${ASSEMBLY}"/bin
 echo "Building zip..."

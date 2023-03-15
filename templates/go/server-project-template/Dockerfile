@@ -17,7 +17,7 @@ RUN curl -s -o ${GO_FILENAME} https://dl.google.com/go/${GO_FILENAME} && \
     rm -f ${GO_FILENAME}
 RUN curl -sSL -o upx-4.0.2-amd64_linux.tar.xz https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz && \
     tar -xf upx-4.0.2-amd64_linux.tar.xz && \
-    mv upx-4.0.2-amd64_linux/upx /usr/local/bin/upx
+    mv upx-4.0.2-amd64_linux/upx /usr/local/bin/upx && \
     rm -rf upx-4.0.2-amd64_linux upx-4.0.2-amd64_linux.tar.xz
 
 ENV GO111MODULE=auto \
