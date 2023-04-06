@@ -19,7 +19,7 @@ echo "SERVER_PORT=${SERVER_PORT}"
 EXE=${BIN_DIR}/${APP}
 echo "EXE=${EXE}"
 
-PIDS=$(netstat -anlp 2>/dev/null | grep -w "$SERVER_PORT" | awk '{print $7}' | awk '{split($1,a,"/");print a[1]}')
+PIDS=$(netstat -nltp 2>/dev/null | grep -w "$SERVER_PORT" | awk '{print $7}' | awk '{split($1,a,"/");print a[1]}')
 if [ -z "$PIDS" ]; then
     PIDS=$(ps -ef | grep "${EXE}" | grep -v grep | awk '{print $2}')
     echo "PIDS: ${PIDS}"

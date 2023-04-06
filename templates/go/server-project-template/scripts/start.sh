@@ -57,7 +57,7 @@ if [ -n "${PIDS}" ]; then
     exit 1
 fi
 
-SERVER_PORT_COUNT=$(netstat -anlp 2>/dev/null | grep -wc "$SERVER_PORT")
+SERVER_PORT_COUNT=$(netstat -nltp 2>/dev/null | grep -wc "$SERVER_PORT")
 if [ ${SERVER_PORT_COUNT} -gt 0 ]; then
     echo "ERROR: The port $SERVER_PORT already used!"
     exit 1
@@ -73,7 +73,7 @@ COUNT=0
 while [ $COUNT -lt 1 ]; do
     sleep 1
     if [ -n "${SERVER_PORT}" ]; then
-        COUNT=$(netstat -anlp 2>/dev/null | grep -cw "$SERVER_PORT")
+        COUNT=$(netstat -nltp 2>/dev/null | grep -cw "$SERVER_PORT")
     fi
     if [ $COUNT -lt 1 ]; then
         COUNT=$(ps -ef | grep "${EXE}" | grep -v grep | awk '{print $2}' | wc -l)
