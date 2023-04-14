@@ -128,9 +128,11 @@ func u_panic(statement *parser.Statement) (string, []string, string) {
 }
 
 func r_panic(statement *parser.Statement) (string, []string, string) {
+	funcLines := ""
+	routers := make([]string, 0)
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+	funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
     type Pageable struct {
         *model.%s
         Page int `+"`form:\"page\" json:\"page\"`"+`
@@ -161,7 +163,33 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
     c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
 }
 `, modelName, modelName, modelName, modelName, modelName, modelName)
-	return funcLines, nil, fmt.Sprintf(`        "POST /api/%s/all": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
+	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/all": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+	primaryKeyNames := make([]string, 0)
+	if len(statement.PrimaryKeyPairs) > 0 {
+		keys := statement.PrimaryKeyPairs[0]
+		for _, k := range keys {
+			primaryKeyNames = append(primaryKeyNames, generator.FirstUpperCamelCase(k.Name))
+		}
+	}
+	if len(primaryKeyNames) > 0 {
+		sName := strings.Join(primaryKeyNames, "")
+		funcLines += fmt.Sprintf(`func (p *Router) QueryOne%s(c *gin.Context) {
+    request := &t.RequestBean[*model.%s]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    s := request.Data
+    if s == nil {
+        siu.ERROR("__LINE__ bad request: empty data")
+        c.JSON(200, t.FailWith(400, "bad request"))
+        return
+    }
+    one := p.Service.Query%sBy%s(s, page, size)
+    c.JSON(200, t.SuccessWith(one))
+}
+`, modelName, modelName, modelName, sName)
+		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.QueryOne%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+	}
+	return funcLines, nil, strings.Join(routers, "\n")
 }
 
 func d_panic(statement *parser.Statement) (string, []string, string) {

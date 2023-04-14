@@ -6,8 +6,7 @@ import (
 	"github.com/stella-go/stella/generator/parser"
 )
 
-func TestGenerate(t *testing.T) {
-	sql := `
+const sql = `
 create table tb_dept(
 	/* tb_dept
 	 * dept table
@@ -33,7 +32,14 @@ create table tb_dept2(
 );
 `
 
+func TestGenerate(t *testing.T) {
 	s := parser.Parse(sql)
 	file := Generate("service", s, true)
+	t.Log(file)
+}
+
+func TestGeneratePanic(t *testing.T) {
+	s := parser.Parse(sql)
+	file := GeneratePanic("service", s, true)
 	t.Log(file)
 }

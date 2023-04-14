@@ -106,11 +106,26 @@ func u(statement *parser.Statement) (string, []string) {
 }
 
 func r(statement *parser.Statement) (string, []string) {
+	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	funcLines := fmt.Sprintf(`func (p *Service) Query%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
+	funcLines += fmt.Sprintf(`func (p *Service) Query%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
     return model.QueryMany%s(p.DB, s, page, size)
 }
 `, modelName, modelName, modelName, modelName)
+	primaryKeyNames := make([]string, 0)
+	if len(statement.PrimaryKeyPairs) > 0 {
+		keys := statement.PrimaryKeyPairs[0]
+		for _, k := range keys {
+			primaryKeyNames = append(primaryKeyNames, generator.FirstUpperCamelCase(k.Name))
+		}
+	}
+	if len(primaryKeyNames) > 0 {
+		sName := strings.Join(primaryKeyNames, "")
+		funcLines += fmt.Sprintf(`func (p *Service) Query%sBy%s(s *model.%s) (*model.%s, error) {
+    return model.Query%sBy%s(p.DB, s)
+}
+        `, modelName, sName, modelName, modelName, modelName, sName)
+	}
 	return funcLines, nil
 }
 
