@@ -124,7 +124,7 @@ func r(statement *parser.Statement) (string, []string) {
 		funcLines += fmt.Sprintf(`func (p *Service) Query%sBy%s(s *model.%s) (*model.%s, error) {
     return model.Query%sBy%s(p.DB, s)
 }
-        `, modelName, sName, modelName, modelName, modelName, sName)
+`, modelName, sName, modelName, modelName, modelName, sName)
 	}
 	return funcLines, nil
 }

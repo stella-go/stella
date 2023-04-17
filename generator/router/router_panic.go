@@ -183,7 +183,7 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
         c.JSON(200, t.FailWith(400, "bad request"))
         return
     }
-    one := p.Service.Query%sBy%s(s, page, size)
+    one := p.Service.Query%sBy%s(s)
     c.JSON(200, t.SuccessWith(one))
 }
 `, modelName, modelName, modelName, sName)

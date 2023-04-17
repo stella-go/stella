@@ -60,6 +60,14 @@ func (v *MysqlVisitor) VisitDdlStatement(ctx *mysql.DdlStatementContext) interfa
 func (v *MysqlVisitor) VisitColumnCreateTable(ctx *mysql.ColumnCreateTableContext) interface{} {
 	statement := ctx.CreateDefinitions().Accept(v).(*Statement)
 	statement.TableName = ctx.TableName().Accept(v).(*NameDefinition)
+	options := ctx.AllTableOption()
+	for _, option := range options {
+		obj := option.Accept(v)
+		switch obj := obj.(type) {
+		case *Comment:
+			statement.Comment = obj
+		}
+	}
 	return statement
 }
 
@@ -102,24 +110,31 @@ func (v *MysqlVisitor) VisitColumnDeclaration(ctx *mysql.ColumnDeclarationContex
 
 func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext) interface{} {
 	column := &ColumnDefinition{Type: ctx.DataType().Accept(v).(string)}
+	autoIncrementOnUpdate, defaultOnUpdate := false, false
 	for _, constraint := range ctx.AllColumnConstraint() {
 		obj := constraint.Accept(v)
-		switch obj.(type) {
+		switch obj := obj.(type) {
 		case *AutoIncrement:
-			column.AutoIncrement = true
+			column.AutoIncrement = obj.autoIncrement
+			autoIncrementOnUpdate = obj.onUpdate
 		case *PrimaryKey:
 			column.PrimaryKey = true
 		case *UniqKey:
 			column.UniqueKey = true
 		case *DefaultValue:
 			column.DefaultValue = true
-		case *CurrentTimestamp:
-			column.DefaultValue = true
-			column.CurrentTimestamp = true
+			defaultOnUpdate = obj.onUpdate
+			column.CurrentTimestamp = obj.currentTimestamp
+		// case *CurrentTimestamp:
+		// 	column.DefaultValue = true
+		// 	column.CurrentTimestamp = true
 		case *NotNull:
 			column.NotNull = true
+		case *Comment:
+			column.Comment = obj
 		}
 	}
+	column.OnUpdate = autoIncrementOnUpdate || defaultOnUpdate
 	return column
 }
 func (v *MysqlVisitor) VisitStringDataType(ctx *mysql.StringDataTypeContext) interface{} {
@@ -159,7 +174,7 @@ func (v *MysqlVisitor) VisitLongVarbinaryDataType(ctx *mysql.LongVarbinaryDataTy
 }
 
 func (v *MysqlVisitor) VisitAutoIncrementColumnConstraint(ctx *mysql.AutoIncrementColumnConstraintContext) interface{} {
-	return &AutoIncrement{}
+	return &AutoIncrement{autoIncrement: ctx.AUTO_INCREMENT() != nil, onUpdate: ctx.ON() != nil}
 }
 
 func (v *MysqlVisitor) VisitPrimaryKeyColumnConstraint(ctx *mysql.PrimaryKeyColumnConstraintContext) interface{} {
@@ -168,6 +183,10 @@ func (v *MysqlVisitor) VisitPrimaryKeyColumnConstraint(ctx *mysql.PrimaryKeyColu
 
 func (v *MysqlVisitor) VisitUniqueKeyColumnConstraint(ctx *mysql.UniqueKeyColumnConstraintContext) interface{} {
 	return &UniqKey{}
+}
+
+func (v *MysqlVisitor) VisitCommentColumnConstraint(ctx *mysql.CommentColumnConstraintContext) interface{} {
+	return &Comment{comment: ctx.GetText(), start: ctx.GetStart().GetStart(), stop: ctx.GetStop().GetStop()}
 }
 
 func (v *MysqlVisitor) VisitDefaultColumnConstraint(ctx *mysql.DefaultColumnConstraintContext) interface{} {
@@ -179,12 +198,13 @@ func (v *MysqlVisitor) VisitDefaultColumnConstraint(ctx *mysql.DefaultColumnCons
 }
 
 func (v *MysqlVisitor) VisitDefaultValue(ctx *mysql.DefaultValueContext) interface{} {
+	defautValue := &DefaultValue{onUpdate: ctx.ON() != nil}
 	for _, current := range ctx.AllCurrentTimestamp() {
 		if obj := current.Accept(v); obj != nil {
-			return obj
+			defautValue.currentTimestamp = true
 		}
 	}
-	return nil
+	return defautValue
 }
 
 func (v *MysqlVisitor) VisitNullColumnConstraint(ctx *mysql.NullColumnConstraintContext) interface{} {
@@ -241,6 +261,10 @@ func (v *MysqlVisitor) VisitIndexColumnNames(ctx *mysql.IndexColumnNamesContext)
 
 func (v *MysqlVisitor) VisitIndexColumnName(ctx *mysql.IndexColumnNameContext) interface{} {
 	return &NameDefinition{name: ctx.GetText(), start: ctx.GetStart().GetStart(), stop: ctx.GetStop().GetStop()}
+}
+
+func (v *MysqlVisitor) VisitTableOptionComment(ctx *mysql.TableOptionCommentContext) interface{} {
+	return &Comment{comment: ctx.GetText(), start: ctx.GetStart().GetStart(), stop: ctx.GetStop().GetStop()}
 }
 
 func Parse(sql string) []*Statement {

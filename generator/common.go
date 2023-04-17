@@ -27,30 +27,30 @@ func FirstUpperCamelCase(s string) string {
 
 func ToCamelCase(s string) string {
 	re := regexp.MustCompile(`_(\w)`)
-	return re.ReplaceAllStringFunc(s, ToUpper)
+	return re.ReplaceAllStringFunc(s, toUpper)
 }
 
 func ToSnakeCase(s string) string {
 	re := regexp.MustCompile(`[A-Z]`)
-	snake := re.ReplaceAllStringFunc(s, ToSnake)
+	snake := re.ReplaceAllStringFunc(s, toSnake)
 	return strings.Trim(snake, "_")
 }
 
 func ToStrikeCase(s string) string {
 	s = strings.ReplaceAll(s, "_", "-")
 	re := regexp.MustCompile(`[A-Z]`)
-	snake := re.ReplaceAllStringFunc(s, ToStrike)
+	snake := re.ReplaceAllStringFunc(s, toStrike)
 	return strings.Trim(snake, "-")
 }
 
-func ToUpper(s string) string {
+func toUpper(s string) string {
 	return strings.ToUpper(s[1:])
 }
 
-func ToSnake(s string) string {
+func toSnake(s string) string {
 	return "_" + strings.ToLower(s[:1])
 }
 
-func ToStrike(s string) string {
+func toStrike(s string) string {
 	return "-" + strings.ToLower(s[:1])
 }

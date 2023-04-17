@@ -214,7 +214,7 @@ func r(statement *parser.Statement) (string, []string, string) {
         c.JSON(200, t.FailWith(400, "bad request"))
         return
     }
-    one, err := p.Service.Query%sBy%s(s, page, size)
+    one, err := p.Service.Query%sBy%s(s)
     if err != nil {
         siu.ERROR("__LINE__ query %s error:", err)
         c.JSON(200, t.FailWith(500, "system error"))

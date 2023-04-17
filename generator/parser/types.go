@@ -45,21 +45,25 @@ type ColumnDefinition struct {
 	PrimaryKey       bool
 	UniqueKey        bool
 	AutoIncrement    bool
+	OnUpdate         bool
 	NotNull          bool
 	DefaultValue     bool
 	CurrentTimestamp bool
+	Comment          *Comment
 }
 
 func (p *ColumnDefinition) String() string {
-	return fmt.Sprintf("ColumnDefinition{ ColumnName: %v, Type: %v, PrimaryKey: %v, UniqKey: %v, AutoIncrement: %v, NotNull: %v, DefaultValue: %v, CurrentTimestamp: %v}",
+	return fmt.Sprintf("ColumnDefinition{ ColumnName: %v, Type: %v, PrimaryKey: %v, UniqKey: %v, AutoIncrement: %v, OnUpdate: %v, NotNull: %v, DefaultValue: %v, CurrentTimestamp: %v, Comment: %s}",
 		p.ColumnName,
 		p.Type,
 		p.PrimaryKey,
 		p.UniqueKey,
 		p.AutoIncrement,
+		p.OnUpdate,
 		p.NotNull,
 		p.DefaultValue,
 		p.CurrentTimestamp,
+		p.Comment,
 	)
 }
 
@@ -69,7 +73,10 @@ type UniqueKeyPair []*NameDefinition
 
 type IndexKeyPair []*NameDefinition
 
-type AutoIncrement struct{}
+type AutoIncrement struct {
+	autoIncrement bool
+	onUpdate      bool
+}
 
 type PrimaryKey struct{}
 
@@ -79,7 +86,11 @@ type IndexKey struct{}
 
 type NotNull struct{}
 
-type DefaultValue struct{}
+type DefaultValue struct {
+	currentTimestamp bool
+	onUpdate         bool
+}
+
 type CurrentTimestamp struct{}
 
 type Statement struct {
@@ -88,12 +99,16 @@ type Statement struct {
 	PrimaryKeyPairs []PrimaryKeyPair
 	UniqKeyPairs    []UniqueKeyPair
 	IndexKeyPairs   []IndexKeyPair
+	Comment         *Comment
 }
 
 func (p *Statement) Fill(sql string) {
 	p.TableName.Fill(sql)
 	for _, column := range p.Columns {
 		column.ColumnName.Fill(sql)
+		if column.Comment != nil {
+			column.Comment.Fill(sql)
+		}
 	}
 	for _, pair := range p.PrimaryKeyPairs {
 		for _, name := range pair {
@@ -110,14 +125,54 @@ func (p *Statement) Fill(sql string) {
 			name.Fill(sql)
 		}
 	}
+	if p.Comment != nil {
+		p.Comment.Fill(sql)
+	}
 }
 
 func (p *Statement) String() string {
-	return fmt.Sprintf("Statement{TableName: %v,Columns: %v,PrimaryKeyPairs: %v,UniqKeyPairs: %v,IndexKeyPairs: %v}",
+	return fmt.Sprintf("Statement{TableName: %v, Columns: %v, PrimaryKeyPairs: %v, UniqKeyPairs: %v, IndexKeyPairs: %v, Comment: %s}",
 		p.TableName,
 		p.Columns,
 		p.PrimaryKeyPairs,
 		p.UniqKeyPairs,
 		p.IndexKeyPairs,
+		p.Comment,
 	)
+}
+
+type Comment struct {
+	Comment string
+	comment string
+	start   int
+	stop    int
+}
+
+func (p *Comment) Fill(sql string) {
+	comment := cut(sql, p.start, p.stop)
+	quote := '\x00'
+	start, end := 0, 0
+	for i, c := range []rune(comment) {
+		switch c {
+		case '\'':
+			if start == 0 {
+				start = i
+				quote = c
+			} else if c == quote {
+				end = i
+			}
+		case '"':
+			if start == 0 {
+				start = i
+				quote = c
+			} else if c == quote {
+				end = i
+			}
+		}
+	}
+	p.Comment = comment[start+1 : end]
+}
+
+func (p *Comment) String() string {
+	return p.Comment
 }

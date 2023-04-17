@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -92,7 +91,7 @@ func readFileWithStdin(input string, sub string) string {
 			sql += text
 		}
 	} else {
-		sqlBytes, err := ioutil.ReadFile(input)
+		sqlBytes, err := os.ReadFile(input)
 		if err != nil {
 			printError("read sql file error", err)
 			return ""
@@ -164,16 +163,24 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	}
 
 	if generateRouter {
-		p, f, o := fill(pkg, output, file, "router")
-		filename := f + "_auto.go"
-		content := func() string {
-			if panicStyle {
-				return router.GeneratePanic(p, statements, banner)
-			} else {
-				return router.Generate(p, statements, banner)
-			}
-		}()
-		writeFileTryFormat(std, o, filename, content)
+		{
+			p, f, o := fill(pkg, output, file, "router")
+			filename := f + "_auto.go"
+			content := func() string {
+				if panicStyle {
+					return router.GeneratePanic(p, statements, banner)
+				} else {
+					return router.Generate(p, statements, banner)
+				}
+			}()
+			writeFileTryFormat(std, o, filename, content)
+		}
+		{
+			_, f, o := fill(pkg, output, file, "doc")
+			filename := f + "_auto.md"
+			content := router.GenerateDoc(statements, banner)
+			writeFileTryFormat(std, o, filename, content)
+		}
 	}
 
 	if generateService {
@@ -279,7 +286,7 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 			}
 		}
 
-		err = ioutil.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0644)
 		if err != nil {
 			printError("write file error", err)
 			fmt.Println(content)
@@ -287,7 +294,7 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 		}
 		bts, err := gofmt.Run(fullPath, false)
 		if err == nil && bts != nil {
-			ioutil.WriteFile(fullPath, bts, 0644)
+			os.WriteFile(fullPath, bts, 0644)
 		}
 	}
 }
