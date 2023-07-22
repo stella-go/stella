@@ -7,7 +7,7 @@ GOARCH="amd64"
 .PHONY: all
 
 all: .build-docker vendor
-	@docker run --rm -v $(PWD):/src -w /src ${IMAGE_NAME} sh -c "GOOS=${GOOS} GOARCH=${GOARCH} ./build.sh"
+	@docker run --rm -v $(PWD):/src -w /src ${IMAGE_NAME} sh -c "GOOS=${GOOS} GOARCH=${GOARCH} ./build.sh ${PROFILE}"
 
 clean:
 	@rm -rf target vendor

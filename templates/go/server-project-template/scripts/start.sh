@@ -12,13 +12,13 @@ DEPLOY_DIR=$(pwd)
 CONFIG_DIR=$DEPLOY_DIR/config
 LIB_DIR=$DEPLOY_DIR/lib
 
-APP=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/application: /!d;s/.*: //' | tr -d '\r')
+APP=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/application: /!d;s/.*: //' | tr -d '\r' | head -1)
 echo "APP=${APP}"
-SERVER_PORT=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/port: /!d;s/.*: //' | tr -d '\r')
+SERVER_PORT=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/port: /!d;s/.*: //' | tr -d '\r' | head -1)
 echo "SERVER_PORT=${SERVER_PORT}"
-LOG_PATH=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/^  path: /!d;s/.*: //' | tr -d '\r')
+LOG_PATH=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/^  path: /!d;s/.*: //' | tr -d '\r' | head -1)
 if [ -z "$LOG_PATH" ]; then
-  LOG_PATH=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/logger.path: /!d;s/.*: //' | tr -d '\r')
+  LOG_PATH=$(grep -v '^\s*#' "${CONFIG_DIR}/application.yml" | sed '/logger.path: /!d;s/.*: //' | tr -d '\r' | head -1)
   if [ -z "${LOG_PATH}" ]; then
     LOG_PATH=${DEPLOY_DIR}/logs
   fi
@@ -69,20 +69,27 @@ export LD_LIBRARY_PATH="${LIB_DIR}:${LD_LIBRARY_PATH}"
 echo "Starting the ${APP} ..."
 nohup "${EXE}" > "${STDOUT_FILE}" 2>&1 &
 
+MAX_WAIT=60
+WAIT=0
 COUNT=0
-while [ $COUNT -lt 1 ]; do
+while [ ${WAIT} -lt ${MAX_WAIT} ]; do
     sleep 1
     if [ -n "${SERVER_PORT}" ]; then
         COUNT=$(netstat -nltp 2>/dev/null | grep -cw "$SERVER_PORT")
     fi
-    if [ $COUNT -lt 1 ]; then
+    if [ ${COUNT} -lt 1 ]; then
         COUNT=$(ps -ef | grep "${EXE}" | grep -v grep | awk '{print $2}' | wc -l)
     fi
-    if [ $COUNT -gt 0 ]; then
+    if [ ${COUNT} -gt 0 ]; then
         break
     fi
+    ((WAIT=WAIT+1))
     echo "check $(date '+%Y-%m-%d %H:%M:%S')"
 done
+if [ ${COUNT} -lt 1 ]; then
+    echo "Failed to start!!!"
+    exit 1
+fi
 
 PIDS=$(ps -ef | grep "${EXE}" | grep -v grep | awk '{print $2}')
 

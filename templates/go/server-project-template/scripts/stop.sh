@@ -39,17 +39,23 @@ COUNT=0
 
 while [ ${COUNT} -le ${MAX_WAIT} ]; do
     sleep 1
-    ((COUNT=COUNT+1))
     for PID in ${PIDS} ; do
         PID_EXIST=$(ps -ef | grep "${PID}" | grep "${EXE}")
         if [ -n "${PID_EXIST}" ]; then
-            echo "Force to terminate the application ${APP}[PID: ${PID}] ..."
-            kill -9 "${PID}"
-            break
+            break 1
         else
-            ((COUNT=MAX_WAIT+1))
+            break 2
         fi
     done
+    ((COUNT=COUNT+1))
+done
+
+for PID in ${PIDS} ; do
+    PID_EXIST=$(ps -ef | grep "${PID}" | grep "${EXE}")
+    if [ -n "${PID_EXIST}" ]; then
+        echo "Force to terminate the application ${APP}[PID: ${PID}] ..."
+        kill -9 "${PID}"
+    fi
 done
 
 echo "OK!"
