@@ -198,7 +198,7 @@ func u_panic(statement *parser.Statement, round string) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL := fmt.Sprintf("update `%s` set %%s where %s", statement.TableName.Name, strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func Update%sBy%s(db DataSource, s *%s) {
+		funcLines += fmt.Sprintf(`func Update%sBy%s(db DataSource, s *%s) int64{
     if s == nil {
         t.AssertErrorNil(fmt.Errorf("pointer can not be nil"))
     }
@@ -207,8 +207,9 @@ func u_panic(statement *parser.Statement, round string) (string, []string) {
     args = append(args, %s)
     ret, err := db.Exec(SQL, args...)
     t.AssertErrorNil(err)
-    _, err = ret.RowsAffected()
+    count, err := ret.RowsAffected()
     t.AssertErrorNil(err)
+	return count
 }
 `, modelName, strings.Join(fields, ""), modelName, SQL, set, strings.Join(args, ", "))
 	}
@@ -480,15 +481,16 @@ func d_panic(statement *parser.Statement, logic string, round string) (string, [
 		} else {
 			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		}
-		funcTemplate := `func %sDelete%sBy%s(db DataSource, s *%s) {
+		funcTemplate := `func %sDelete%sBy%s(db DataSource, s *%s) int64{
     if s == nil {
         t.AssertErrorNil(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     t.AssertErrorNil(err)
-    _, err = ret.RowsAffected()
+    count, err := ret.RowsAffected()
     t.AssertErrorNil(err)
+	return count
 }
 `
 		funcLines += fmt.Sprintf(funcTemplate, "", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))

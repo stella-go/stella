@@ -91,6 +91,11 @@ func c_panic(statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines := fmt.Sprintf(`func (p *Router) Create%s(c *gin.Context) {
+    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     t.AssertErrorNil(err)
@@ -111,6 +116,11 @@ func u_panic(statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines := fmt.Sprintf(`func (p *Router) Update%s(c *gin.Context) {
+    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     t.AssertErrorNil(err)
@@ -133,6 +143,11 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
     type Pageable struct {
         *model.%s
         Page int `+"`form:\"page\" json:\"page\"`"+`
@@ -196,6 +211,11 @@ func d_panic(statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines := fmt.Sprintf(`func (p *Router) Delete%s(c *gin.Context) {
+    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     t.AssertErrorNil(err)

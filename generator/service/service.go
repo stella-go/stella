@@ -97,7 +97,8 @@ func u(statement *parser.Statement) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(k.ColumnName.Name))
 		}
 		funcLines := fmt.Sprintf(`func (p *Service) Update%s(s *model.%s) error {
-    return model.Update%sBy%s(p.DB, s)
+    _, err := model.Update%sBy%s(p.DB, s)
+    return err
 }
 `, modelName, modelName, modelName, strings.Join(fields, ", "))
 		return funcLines, nil
@@ -140,7 +141,8 @@ func d(statement *parser.Statement) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(k.ColumnName.Name))
 		}
 		funcLines := fmt.Sprintf(`func (p *Service) Delete%s(s *model.%s) error {
-    return model.Delete%sBy%s(p.DB, s)
+    _, err := model.Delete%sBy%s(p.DB, s)
+    return err
 }
 `, modelName, modelName, modelName, strings.Join(fields, ", "))
 		return funcLines, nil

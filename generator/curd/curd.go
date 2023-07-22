@@ -194,7 +194,7 @@ func u(statement *parser.Statement, round string) (string, []string) {
 		set += `set = strings.TrimLeft(set, ",")
     set = strings.TrimSpace(set)
     if set == "" {
-        return fmt.Errorf("all field is nil")
+        return 0, t.Error(fmt.Errorf("all field is nil"))
     }
     SQL = fmt.Sprintf(SQL, set)`
 		fields := make([]string, 0)
@@ -209,22 +209,22 @@ func u(statement *parser.Statement, round string) (string, []string) {
 			fields = append(fields, generator.FirstUpperCamelCase(col.ColumnName.Name))
 		}
 		SQL := fmt.Sprintf("update `%s` set %%s where %s", statement.TableName.Name, strings.Join(conditions, " and "))
-		funcLines += fmt.Sprintf(`func Update%sBy%s(db DataSource, s *%s) error {
+		funcLines += fmt.Sprintf(`func Update%sBy%s(db DataSource, s *%s) (int64, error) {
     if s == nil {
-        return t.Error(fmt.Errorf("pointer can not be nil"))
+        return 0, t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     %s
     args = append(args, %s)
     ret, err := db.Exec(SQL, args...)
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
-    _, err = ret.RowsAffected()
+    count, err := ret.RowsAffected()
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
-    return nil
+    return count, nil
 }
 `, modelName, strings.Join(fields, ""), modelName, SQL, set, strings.Join(args, ", "))
 	}
@@ -504,20 +504,20 @@ func d(statement *parser.Statement, logic string, round string) (string, []strin
 		} else {
 			SQL = fmt.Sprintf("delete from `%s` where %s", statement.TableName, strings.Join(conditions, " and "))
 		}
-		funcTemplate := `func %sDelete%sBy%s(db DataSource, s *%s) error {
+		funcTemplate := `func %sDelete%sBy%s(db DataSource, s *%s) (int64, error) {
     if s == nil {
-        return t.Error(fmt.Errorf("pointer can not be nil"))
+        return 0, t.Error(fmt.Errorf("pointer can not be nil"))
     }
     SQL := "%s"
     ret, err := db.Exec(SQL, %s)
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
-    _, err = ret.RowsAffected()
+    count, err := ret.RowsAffected()
     if err != nil {
-        return t.Error(err)
+        return 0, t.Error(err)
     }
-    return nil
+    return count, nil
 }
 `
 		funcLines += fmt.Sprintf(funcTemplate, "", modelName, strings.Join(fields, ""), modelName, SQL, strings.Join(args, ", "))
