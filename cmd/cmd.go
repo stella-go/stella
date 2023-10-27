@@ -56,7 +56,7 @@ Usage:
 
 	m := flageSet.Bool("m", true, "generate models")
 
-	c := flageSet.Bool("c", true, "generate curd")
+	c := flageSet.Bool("curd", false, "generate curd")
 	asc := flageSet.String("asc", "", "order by")
 	desc := flageSet.String("desc", "", "reverse order by")
 	logic := flageSet.String("logic", "", "logic delete")

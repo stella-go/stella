@@ -98,7 +98,21 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 			}
 			importsMap[typeImportsMapping[typ]] = common.Null
 
-			tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name))
+			freeTags := []string{fmt.Sprintf("table='%s'", statement.TableName), fmt.Sprintf("column='%s'", col.ColumnName)}
+			if isPrimaryKey(statement, col) {
+				freeTags = append(freeTags, "primary")
+			}
+			if col.AutoIncrement {
+				freeTags = append(freeTags, "auto-incrment")
+			}
+			if col.CurrentTimestamp {
+				freeTags = append(freeTags, "current-timestamp")
+			}
+			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+				freeTags = append(freeTags, "round='s'")
+			}
+
+			tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @free:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(freeTags, ","))
 			field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
 			fields = append(fields, field)
 		}
@@ -119,4 +133,19 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 
 	}
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), strings.Join(structs, "\n"))
+}
+
+func isPrimaryKey(statement *parser.Statement, col *parser.ColumnDefinition) bool {
+	if col.PrimaryKey {
+		return true
+	}
+	for _, pair := range statement.PrimaryKeyPairs {
+		for _, k := range pair {
+			if strings.EqualFold(col.ColumnName.Name, k.Name) {
+				return true
+			}
+		}
+
+	}
+	return false
 }

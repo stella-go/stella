@@ -22,27 +22,17 @@ import (
 
 func TestGenerate(t *testing.T) {
 	sql := `
-create table tb_dept(
-	/* tb_dept
-	 * dept table
-     */
-	-- abc
-    id int auto_increment,#部门编号 整形 主键 自增长
-    DePt_name varchar(18),#部门名称
-    description varchar(100),#描述 /*  xxx */
-	status tinyint,
-primary key(Id)
-);
-
-create table tb_dept2(
-	/* tb_dept
-	 * dept table
-     */
-	-- abc
-    Id int primary key auto_increment,#部门编号 整形 主键 自增长''""
-    Name varchar(18),#部门名称
-    description varchar(100)#描述
-);
+	DROP TABLE IF EXISTS tb_students;
+	CREATE TABLE tb_students (
+		id INT NOT NULL AUTO_INCREMENT COMMENT 'ROW ID',
+		no VARCHAR (32) COMMENT 'STUDENT NUMBER',
+		name VARCHAR (64) COMMENT 'STUDENT NAME',
+		age INT COMMENT 'STUDENT AGE',
+		gender VARCHAR (1) DEFAULT NULL COMMENT 'STUDENT GENDER',
+		create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'CREATE TIME',
+		update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'UPDATE TIME',
+		PRIMARY KEY (id)
+	) ENGINE = INNODB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'STUDENT RECORDS';
 `
 
 	s := parser.Parse(sql)

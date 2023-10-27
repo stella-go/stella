@@ -34,7 +34,8 @@ Usage:
         order by
   -banner
         output banner (default true)
-  -c    generate curd (default true)
+  -curd
+        generate curd
   -desc string
         reverse order by
   -f string
@@ -51,6 +52,8 @@ Usage:
         output dictionary
   -p string
         package name
+  -panic
+        panic style
   -round string
         round time [s/ms/μs] (default "s")
   -router
