@@ -284,7 +284,7 @@ Content-Type: application/json;
 
 - example
 `+"```"+`
-curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s/all" -d '%s'
+curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s/many" -d '%s'
 %s
 `+"```"+`
 

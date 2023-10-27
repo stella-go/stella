@@ -28,6 +28,7 @@ import (
 func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
+	importsMap["github.com/stella-go/siu/fn/data"] = common.Null
 	functions := make([]string, 0)
 
 	for _, statement := range statements {
@@ -79,10 +80,10 @@ func c(statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines := fmt.Sprintf(`func (p *Service) Create%s(s *model.%s) error {
-    _, err := model.Create%s(p.DB, s)
+    _, err := data.Create(p.DB, s)
     return err
 }
-`, modelName, modelName, modelName)
+`, modelName, modelName)
 	return funcLines, nil
 }
 
@@ -91,16 +92,11 @@ func u(statement *parser.Statement) (string, []string) {
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		fields := make([]string, 0)
-		keys := primaryKeys[0]
-		for _, k := range keys {
-			fields = append(fields, generator.FirstUpperCamelCase(k.ColumnName.Name))
-		}
 		funcLines := fmt.Sprintf(`func (p *Service) Update%s(s *model.%s) error {
-    _, err := model.Update%sBy%s(p.DB, s)
+    _, err := data.Update(p.DB, s)
     return err
 }
-`, modelName, modelName, modelName, strings.Join(fields, ", "))
+`, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil
@@ -109,10 +105,10 @@ func u(statement *parser.Statement) (string, []string) {
 func r(statement *parser.Statement) (string, []string) {
 	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	funcLines += fmt.Sprintf(`func (p *Service) Query%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
-    return model.QueryMany%s(p.DB, s, page, size)
+	funcLines += fmt.Sprintf(`func (p *Service) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
+    return data.QueryMany(p.DB, s, page, size)
 }
-`, modelName, modelName, modelName, modelName)
+`, modelName, modelName, modelName)
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -121,11 +117,10 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		sName := strings.Join(primaryKeyNames, "")
-		funcLines += fmt.Sprintf(`func (p *Service) Query%sBy%s(s *model.%s) (*model.%s, error) {
-    return model.Query%sBy%s(p.DB, s)
+		funcLines += fmt.Sprintf(`func (p *Service) Query%s(s *model.%s) (*model.%s, error) {
+    return data.Query(p.DB, s)
 }
-`, modelName, sName, modelName, modelName, modelName, sName)
+`, modelName, modelName, modelName)
 	}
 	return funcLines, nil
 }
@@ -135,16 +130,11 @@ func d(statement *parser.Statement) (string, []string) {
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		fields := make([]string, 0)
-		keys := primaryKeys[0]
-		for _, k := range keys {
-			fields = append(fields, generator.FirstUpperCamelCase(k.ColumnName.Name))
-		}
 		funcLines := fmt.Sprintf(`func (p *Service) Delete%s(s *model.%s) error {
-    _, err := model.Delete%sBy%s(p.DB, s)
+    _, err := data.Delete(p.DB, s)
     return err
 }
-`, modelName, modelName, modelName, strings.Join(fields, ", "))
+`, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil

@@ -142,7 +142,7 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
 	routers := make([]string, 0)
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+	funcLines += fmt.Sprintf(`func (p *Router) QueryMany%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -174,11 +174,11 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
         Count int `+"`json:\"count\"`"+`
         List []*model.%s `+"`json:\"list\"`"+`
     }
-    count, list := p.Service.Query%s(s, page, size)
+    count, list := p.Service.QueryMany%s(s, page, size)
     c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
 }
 `, modelName, modelName, modelName, modelName, modelName, modelName)
-	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/all": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/many": p.QueryMany%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -187,8 +187,12 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		sName := strings.Join(primaryKeyNames, "")
-		funcLines += fmt.Sprintf(`func (p *Router) QueryOne%s(c *gin.Context) {
+		funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     t.AssertErrorNil(err)
@@ -198,11 +202,11 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
         c.JSON(200, t.FailWith(400, "bad request"))
         return
     }
-    one := p.Service.Query%sBy%s(s)
+    one := p.Service.Query%s(s)
     c.JSON(200, t.SuccessWith(one))
 }
-`, modelName, modelName, modelName, sName)
-		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.QueryOne%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+`, modelName, modelName, modelName)
+		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	}
 	return funcLines, nil, strings.Join(routers, "\n")
 }

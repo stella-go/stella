@@ -150,7 +150,7 @@ func r(statement *parser.Statement) (string, []string, string) {
 	routers := make([]string, 0)
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+	funcLines += fmt.Sprintf(`func (p *Router) QueryMany%s(c *gin.Context) {
     type Pageable struct {
         *model.%s
         Page int `+"`form:\"page\" json:\"page\"`"+`
@@ -181,7 +181,7 @@ func r(statement *parser.Statement) (string, []string, string) {
         Count int `+"`json:\"count\"`"+`
         List []*model.%s `+"`json:\"list\"`"+`
     }
-    count, list, err := p.Service.Query%s(s, page, size)
+    count, list, err := p.Service.QueryMany%s(s, page, size)
     if err != nil {
         siu.ERROR("__LINE__ query %s error:", err)
         c.JSON(200, t.FailWith(500, "system error"))
@@ -190,7 +190,7 @@ func r(statement *parser.Statement) (string, []string, string) {
     }
 }
 `, modelName, modelName, modelName, modelName, modelName, modelName, modelName)
-	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/all": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/many": p.QueryMany%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -199,8 +199,7 @@ func r(statement *parser.Statement) (string, []string, string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		sName := strings.Join(primaryKeyNames, "")
-		funcLines += fmt.Sprintf(`func (p *Router) QueryOne%s(c *gin.Context) {
+		funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     if err != nil {
@@ -214,7 +213,7 @@ func r(statement *parser.Statement) (string, []string, string) {
         c.JSON(200, t.FailWith(400, "bad request"))
         return
     }
-    one, err := p.Service.Query%sBy%s(s)
+    one, err := p.Service.Query%s(s)
     if err != nil {
         siu.ERROR("__LINE__ query %s error:", err)
         c.JSON(200, t.FailWith(500, "system error"))
@@ -222,8 +221,8 @@ func r(statement *parser.Statement) (string, []string, string) {
         c.JSON(200, t.SuccessWith(one))
     }
 }
-`, modelName, modelName, modelName, sName, modelName)
-		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.QueryOne%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+`, modelName, modelName, modelName, modelName)
+		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	}
 	return funcLines, nil, strings.Join(routers, "\n")
 }
@@ -247,7 +246,7 @@ func d(statement *parser.Statement) (string, []string, string) {
     }
     err = p.Service.Delete%s(s)
     if err != nil {
-        siu.ERROR("__LINE__ update %s error:", err)
+        siu.ERROR("__LINE__ delete %s error:", err)
         c.JSON(200, t.FailWith(500, "system error"))
     } else {
         c.JSON(200, t.Success())
