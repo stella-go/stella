@@ -122,7 +122,7 @@ func (v *MysqlVisitor) VisitColumnDefinition(ctx *mysql.ColumnDefinitionContext)
 		case *UniqKey:
 			column.UniqueKey = true
 		case *DefaultValue:
-			column.DefaultValue = true
+			column.DefaultValue = obj
 			defaultOnUpdate = obj.onUpdate
 			column.CurrentTimestamp = obj.currentTimestamp
 		// case *CurrentTimestamp:
@@ -193,7 +193,7 @@ func (v *MysqlVisitor) VisitDefaultColumnConstraint(ctx *mysql.DefaultColumnCons
 	if c := ctx.DefaultValue().Accept(v); c != nil {
 		return c
 	} else {
-		return &DefaultValue{}
+		return nil
 	}
 }
 
@@ -203,6 +203,15 @@ func (v *MysqlVisitor) VisitDefaultValue(ctx *mysql.DefaultValueContext) interfa
 		if obj := current.Accept(v); obj != nil {
 			defautValue.currentTimestamp = true
 		}
+	}
+	if null := ctx.NULL_LITERAL(); null != nil {
+		defautValue.DefaultValue = true
+		defautValue.Value = null.GetText()
+	}
+	if constant := ctx.Constant(); constant != nil {
+		defautValue.DefaultValue = true
+		defautValue.start = constant.GetStart().GetStart()
+		defautValue.stop = constant.GetStart().GetStop()
 	}
 	return defautValue
 }

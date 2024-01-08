@@ -47,9 +47,21 @@ type ColumnDefinition struct {
 	AutoIncrement    bool
 	OnUpdate         bool
 	NotNull          bool
-	DefaultValue     bool
+	DefaultValue     *DefaultValue
 	CurrentTimestamp bool
 	Comment          *Comment
+}
+
+func (p *ColumnDefinition) Fill(sql string) {
+	if p.ColumnName != nil {
+		p.ColumnName.Fill(sql)
+	}
+	if p.DefaultValue != nil && p.DefaultValue.start != 0 && p.DefaultValue.stop != 0 {
+		p.DefaultValue.Fill(sql)
+	}
+	if p.Comment != nil {
+		p.Comment.Fill(sql)
+	}
 }
 
 func (p *ColumnDefinition) String() string {
@@ -89,6 +101,17 @@ type NotNull struct{}
 type DefaultValue struct {
 	currentTimestamp bool
 	onUpdate         bool
+	DefaultValue     bool
+	Value            string
+	start            int
+	stop             int
+}
+
+func (p *DefaultValue) Fill(sql string) {
+	value := cut(sql, p.start, p.stop)
+	value = strings.TrimLeft(value, "(")
+	value = strings.TrimRight(value, ")")
+	p.Value = value
 }
 
 type CurrentTimestamp struct{}
@@ -105,10 +128,7 @@ type Statement struct {
 func (p *Statement) Fill(sql string) {
 	p.TableName.Fill(sql)
 	for _, column := range p.Columns {
-		column.ColumnName.Fill(sql)
-		if column.Comment != nil {
-			column.Comment.Fill(sql)
-		}
+		column.Fill(sql)
 	}
 	for _, pair := range p.PrimaryKeyPairs {
 		for _, name := range pair {

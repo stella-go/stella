@@ -35,8 +35,8 @@ import (
 )
 
 func Generate() {
-	flageSet := flag.NewFlagSet("stella generate", flag.ExitOnError)
-	flageSet.Usage = func() {
+	flagSet := flag.NewFlagSet("stella generate", flag.ExitOnError)
+	flagSet.Usage = func() {
 		fmt.Fprintf(os.Stderr, `
 stella An efficient development tool. %s
 
@@ -44,39 +44,40 @@ Usage:
 	stella generate -i init.sql -o model 
 
 `, version.VERSION)
-		flageSet.PrintDefaults()
+		flagSet.PrintDefaults()
 	}
-	i := flageSet.String("i", "", "input sql file")
-	sub := flageSet.String("sub", "", "sql subset")
+	i := flagSet.String("i", "", "input sql file")
+	sub := flagSet.String("sub", "", "sql subset")
 
-	std := flageSet.Bool("std", false, "stdout print")
-	o := flageSet.String("o", "", "output dictionary")
-	f := flageSet.String("f", "", "output file name")
-	p := flageSet.String("p", "", "package name")
+	std := flagSet.Bool("std", false, "stdout print")
+	o := flagSet.String("o", "", "output dictionary")
+	f := flagSet.String("f", "", "output file name")
+	p := flagSet.String("p", "", "package name")
 
-	m := flageSet.Bool("m", true, "generate models")
+	m := flagSet.Bool("m", true, "generate models")
+	gorm := flagSet.Bool("gorm", false, "models with gorm tags")
 
-	c := flageSet.Bool("curd", false, "generate curd")
-	asc := flageSet.String("asc", "", "order by")
-	desc := flageSet.String("desc", "", "reverse order by")
-	logic := flageSet.String("logic", "", "logic delete")
-	round := flageSet.String("round", "s", "round time [s/ms/μs]")
+	c := flagSet.Bool("curd", false, "generate curd")
+	asc := flagSet.String("asc", "", "order by")
+	desc := flagSet.String("desc", "", "reverse order by")
+	logic := flagSet.String("logic", "", "logic delete")
+	round := flagSet.String("round", "s", "round time [s/ms/μs]")
 
-	generateRouter := flageSet.Bool("router", false, "generate router")
-	generateService := flageSet.Bool("service", false, "generate service")
+	generateRouter := flagSet.Bool("router", false, "generate router")
+	generateService := flagSet.Bool("service", false, "generate service")
 
-	panicStyle := flageSet.Bool("panic", false, "panic style")
+	panicStyle := flagSet.Bool("panic", false, "panic style")
 
-	banner := flageSet.Bool("banner", true, "output banner")
+	banner := flagSet.Bool("banner", true, "output banner")
 
-	h := flageSet.Bool("h", false, "print help info")
-	help := flageSet.Bool("help", false, "print help info")
-	flageSet.Parse(os.Args[2:])
+	h := flagSet.Bool("h", false, "print help info")
+	help := flagSet.Bool("help", false, "print help info")
+	flagSet.Parse(os.Args[2:])
 	if *h || *help {
-		flageSet.Usage()
+		flagSet.Usage()
 		return
 	}
-	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService, *panicStyle)
+	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *gorm, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService, *panicStyle)
 }
 
 func readFileWithStdin(input string, sub string) string {
@@ -155,7 +156,7 @@ func readFileWithStdin(input string, sub string) string {
 	return sql
 }
 
-func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool, panicStyle bool) {
+func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, gorm bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool, panicStyle bool) {
 	sql := readFileWithStdin(input, sub)
 	statements := parser.Parse(sql)
 	if len(statements) == 0 {
@@ -199,7 +200,7 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if m {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_auto.go"
-		content := model.Generate(p, statements, banner)
+		content := model.Generate(p, statements, banner, gorm)
 		writeFileTryFormat(std, o, filename, content)
 	}
 
@@ -300,26 +301,26 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 }
 
 func Create() {
-	flageSet := flag.NewFlagSet("stella create", flag.ExitOnError)
-	flageSet.Usage = func() {
+	flagSet := flag.NewFlagSet("stella create", flag.ExitOnError)
+	flagSet.Usage = func() {
 		fmt.Fprintf(os.Stderr, `
 stella An efficient development tool. %s
 Usage: 
 	stella create -n my-project
 
 `, version.VERSION)
-		flageSet.PrintDefaults()
+		flagSet.PrintDefaults()
 	}
-	l := flageSet.String("l", "go", "projcet language")
-	t := flageSet.String("t", "server", "project type [server/sdk]")
-	n := flageSet.String("n", "demo", "project name")
-	o := flageSet.String("o", ".", "output dictionary")
+	l := flagSet.String("l", "go", "projcet language")
+	t := flagSet.String("t", "server", "project type [server/sdk]")
+	n := flagSet.String("n", "demo", "project name")
+	o := flagSet.String("o", ".", "output dictionary")
 
-	h := flageSet.Bool("h", false, "print help info")
-	help := flageSet.Bool("help", false, "print help info")
-	flageSet.Parse(os.Args[2:])
+	h := flagSet.Bool("h", false, "print help info")
+	help := flagSet.Bool("help", false, "print help info")
+	flagSet.Parse(os.Args[2:])
 	if *h || *help {
-		flageSet.Usage()
+		flagSet.Usage()
 		return
 	}
 
@@ -368,8 +369,8 @@ func createProj(language string, stype string, name string, output string) {
 }
 
 func Line() {
-	flageSet := flag.NewFlagSet("stella line", flag.ContinueOnError)
-	flageSet.Usage = func() {
+	flagSet := flag.NewFlagSet("stella line", flag.ContinueOnError)
+	flagSet.Usage = func() {
 		fmt.Fprintf(os.Stderr, `
 stella An efficient development tool. %s
 Usage: 
@@ -377,23 +378,23 @@ Usage:
 
 	stella line, By default it is equivalent to "stella line ."
 `, version.VERSION)
-		flageSet.PrintDefaults()
+		flagSet.PrintDefaults()
 	}
 
-	h := flageSet.Bool("h", false, "print help info")
-	help := flageSet.Bool("help", false, "print help info")
-	ignore := flageSet.String("ignore", "", "ignore file patterns")
-	include := flageSet.String("include", "*.*", "include file patterns")
-	s := flageSet.Bool("s", false, "use file short name")
+	h := flagSet.Bool("h", false, "print help info")
+	help := flagSet.Bool("help", false, "print help info")
+	ignore := flagSet.String("ignore", "", "ignore file patterns")
+	include := flagSet.String("include", "*.*", "include file patterns")
+	s := flagSet.Bool("s", false, "use file short name")
 
-	flageSet.Parse(os.Args[2:])
+	flagSet.Parse(os.Args[2:])
 	if *h || *help {
-		flageSet.Usage()
+		flagSet.Usage()
 		return
 	}
 	ignores := strings.Split(*ignore, ",")
 	includes := strings.Split(*include, ",")
-	args := flageSet.Args()
+	args := flagSet.Args()
 	roots := make([]string, 0)
 	if len(args) < 1 {
 		roots = append(roots, ".")

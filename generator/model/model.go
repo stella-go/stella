@@ -85,7 +85,7 @@ func (s *Struct) toString() string {
 	return "func (s *" + s.name + ") String() string {\n\treturn fmt.Sprintf(\"" + s.name + "{" + strings.Join(formats, ", ") + "}\", " + strings.Join(args, ", ") + ")\n}\n"
 }
 
-func Generate(pkg string, statements []*parser.Statement, banner bool) string {
+func Generate(pkg string, statements []*parser.Statement, gorm bool, banner bool) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["fmt"] = common.Null
 	structs := make([]string, 0)
@@ -97,24 +97,37 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 				typ = typeMapping["default"]
 			}
 			importsMap[typeImportsMapping[typ]] = common.Null
+			if gorm {
+				gormTags := []string{fmt.Sprintf("column:%s", col.ColumnName)}
+				if col.NotNull {
+					gormTags = append(gormTags, "not null")
+				}
+				if col.DefaultValue != nil && col.DefaultValue.DefaultValue {
+					gormTags = append(gormTags, "default:"+col.DefaultValue.Value)
+				}
 
-			freeTags := []string{fmt.Sprintf("table='%s'", statement.TableName), fmt.Sprintf("column='%s'", col.ColumnName)}
-			if isPrimaryKey(statement, col) {
-				freeTags = append(freeTags, "primary")
-			}
-			if col.AutoIncrement {
-				freeTags = append(freeTags, "auto-incrment")
-			}
-			if col.CurrentTimestamp {
-				freeTags = append(freeTags, "current-timestamp")
-			}
-			if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
-				freeTags = append(freeTags, "round='s'")
-			}
+				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" gorm:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(gormTags, ";"))
+				field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
+				fields = append(fields, field)
+			} else {
+				freeTags := []string{fmt.Sprintf("table='%s'", statement.TableName), fmt.Sprintf("column='%s'", col.ColumnName)}
+				if isPrimaryKey(statement, col) {
+					freeTags = append(freeTags, "primary")
+				}
+				if col.AutoIncrement {
+					freeTags = append(freeTags, "auto-incrment")
+				}
+				if col.CurrentTimestamp {
+					freeTags = append(freeTags, "current-timestamp")
+				}
+				if col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP" {
+					freeTags = append(freeTags, "round='s'")
+				}
 
-			tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @free:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(freeTags, ","))
-			field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
-			fields = append(fields, field)
+				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @free:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(freeTags, ","))
+				field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
+				fields = append(fields, field)
+			}
 		}
 		struc := &Struct{generator.FirstUpperCamelCase(statement.TableName.Name), fields}
 		structs = append(structs, struc.String())

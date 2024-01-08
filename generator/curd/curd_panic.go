@@ -98,7 +98,7 @@ func c_panic(statement *parser.Statement, round string) (string, []string) {
 	values := make([]string, 0)
 	args := make([]string, 0)
 	for _, col := range statement.Columns {
-		if col.AutoIncrement || col.CurrentTimestamp || col.DefaultValue {
+		if col.AutoIncrement || col.CurrentTimestamp || col.DefaultValue != nil {
 			continue
 		}
 		fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
@@ -118,7 +118,7 @@ func c_panic(statement *parser.Statement, round string) (string, []string) {
 		if col.AutoIncrement || col.CurrentTimestamp {
 			continue
 		}
-		if col.DefaultValue {
+		if col.DefaultValue != nil {
 			fieldName := generator.FirstUpperCamelCase(col.ColumnName.Name)
 			arg := "s." + fieldName
 			if (col.Type == "DATE" || col.Type == "DATETIME" || col.Type == "TIMESTAMP") && round != "" {

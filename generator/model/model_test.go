@@ -36,6 +36,8 @@ func TestGenerate(t *testing.T) {
 `
 
 	s := parser.Parse(sql)
-	file := Generate("model", s, true)
+	file := Generate("model", s, true, true)
+	t.Log(file)
+	file = Generate("model", s, true, false)
 	t.Log(file)
 }
