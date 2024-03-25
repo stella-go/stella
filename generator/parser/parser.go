@@ -201,7 +201,9 @@ func (v *MysqlVisitor) VisitDefaultValue(ctx *mysql.DefaultValueContext) interfa
 	defautValue := &DefaultValue{onUpdate: ctx.ON() != nil}
 	for _, current := range ctx.AllCurrentTimestamp() {
 		if obj := current.Accept(v); obj != nil {
+			defautValue.DefaultValue = true
 			defautValue.currentTimestamp = true
+			defautValue.Value = "current_timestamp"
 		}
 	}
 	if null := ctx.NULL_LITERAL(); null != nil {
