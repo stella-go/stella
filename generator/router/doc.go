@@ -183,7 +183,7 @@ Content-Type: application/json;
 %s
 
 - example
-`+"```"+`
+`+"```bash"+`
 curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s" -d '%s'
 %s
 `+"```"+`
@@ -228,7 +228,7 @@ Content-Type: application/json;
 %s
 
 - example
-`+"```"+`
+`+"```bash"+`
 curl -XPUT -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s" -d '%s'
 %s
 `+"```"+`
@@ -283,7 +283,7 @@ Content-Type: application/json;
 %s
 
 - example
-`+"```"+`
+`+"```bash"+`
 curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s/many" -d '%s'
 %s
 `+"```"+`
@@ -326,7 +326,7 @@ Content-Type: application/json;
 %s
 
 - example
-`+"```"+`
+`+"```bash"+`
 curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s/one" -d '%s'
 %s
 `+"```"+`
@@ -373,7 +373,7 @@ Content-Type: application/json;
 %s
 
 - example
-`+"```"+`
+`+"```bash"+`
 curl -XDELETE -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s" -d '%s'
 %s
 `+"```"+`

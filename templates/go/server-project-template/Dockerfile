@@ -8,7 +8,7 @@ RUN \
     #     -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.tuna.tsinghua.edu.cn|g' \
     #     -i.bak \
     #     /etc/yum.repos.d/CentOS-*.repo && \
-    yum install -y epel-release cmake gcc gcc-c++ binutils zip unzip git && \
+    yum install -y epel-release cmake gcc gcc-c++ binutils zip unzip git upx && \
     yum clean all
 
 WORKDIR /root

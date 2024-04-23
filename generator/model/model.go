@@ -85,7 +85,7 @@ func (s *Struct) toString() string {
 	return "func (s *" + s.name + ") String() string {\n\treturn fmt.Sprintf(\"" + s.name + "{" + strings.Join(formats, ", ") + "}\", " + strings.Join(args, ", ") + ")\n}\n"
 }
 
-func Generate(pkg string, statements []*parser.Statement, gorm bool, banner bool) string {
+func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool) string {
 	importsMap := make(map[string]common.Void)
 	importsMap["fmt"] = common.Null
 	structs := make([]string, 0)
