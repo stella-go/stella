@@ -116,7 +116,7 @@ if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -ldflags="-s -w" -o "
 fi
 
 if upx -V > /dev/null 2>&1 ; then
-    upx -q -o "${ASSEMBLY}/bin/${APPLICATION}" "${ASSEMBLY}/bin/${APPLICATION}" > /dev/null 2>&1
+    upx -q "${ASSEMBLY}/bin/${APPLICATION}" > /dev/null 2>&1
     echo "Building upx compress success"
 fi
 chmod -R a+x "${ASSEMBLY}"/bin
