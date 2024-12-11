@@ -2,11 +2,12 @@ package router
 
 import (
 	"{{ project-name }}/service"
+
 	"github.com/gin-gonic/gin"
 )
 
 type HelloRouter struct {
-	HelloService *service.HelloService
+	HelloService *service.HelloService `@siu:""`
 }
 
 func (p *HelloRouter) Router() map[string]gin.HandlerFunc {
