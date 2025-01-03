@@ -188,10 +188,14 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 		p, f, o := fill(pkg, output, file, "service")
 		filename := f + "_auto.go"
 		content := func() string {
-			if panicStyle {
-				return service.GeneratePanic(p, statements, banner)
+			if gorm {
+				return service.GenerateGorm(p, statements, banner)
 			} else {
-				return service.Generate(p, statements, banner)
+				if panicStyle {
+					return service.GeneratePanic(p, statements, banner)
+				} else {
+					return service.Generate(p, statements, banner)
+				}
 			}
 		}()
 		writeFileTryFormat(std, o, filename, content)

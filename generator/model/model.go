@@ -99,6 +99,12 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 			importsMap[typeImportsMapping[typ]] = common.Null
 			if gorm {
 				gormTags := []string{fmt.Sprintf("column:%s", col.ColumnName)}
+				if isPrimaryKey(statement, col) {
+					gormTags = append(gormTags, "primarykey")
+				}
+				if col.AutoIncrement {
+					gormTags = append(gormTags, "autoIncrement")
+				}
 				if col.NotNull {
 					gormTags = append(gormTags, "not null")
 				}
