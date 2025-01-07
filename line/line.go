@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -28,23 +28,28 @@ var (
 	re = regexp.MustCompile("(.*?__LINE)(.*?)(__.*?)")
 )
 
-func Fill(root string, includes []string, ignores []string, shortName bool) error {
+func Fill(root string, ignores []string, includes []string, excludes []string, shortName bool) error {
 	return filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
-			if isInclude, e := match(includes, path); e != nil {
-				return err
-			} else if !isInclude {
-				return nil
-			}
 			if isIgnore, e := match(ignores, path); e != nil {
-				return err
+				return e
 			} else if isIgnore {
 				return nil
 			}
-			content, err := ioutil.ReadFile(path)
+			if isInclude, e := match(includes, path); e != nil {
+				return e
+			} else if !isInclude {
+				return nil
+			}
+			if isExclude, e := match(excludes, path); e != nil {
+				return e
+			} else if isExclude {
+				return nil
+			}
+			content, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
@@ -60,7 +65,7 @@ func Fill(root string, includes []string, ignores []string, shortName bool) erro
 				lines[line] = re.ReplaceAll(c, []byte(fmt.Sprintf("${1}:%s:%d${3}", name, line+1)))
 			}
 			content = bytes.Join(lines, []byte("\n"))
-			return ioutil.WriteFile(path, content, info.Mode())
+			return os.WriteFile(path, content, info.Mode())
 		}
 		return nil
 	})
@@ -76,6 +81,9 @@ func match(patterns []string, path string) (bool, error) {
 			err = e
 		}
 		if len(matches) != 0 && contains(matches, path) {
+			return true, nil
+		}
+		if pattern != "" && strings.HasPrefix(path, pattern) {
 			return true, nil
 		}
 	}

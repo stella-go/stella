@@ -404,6 +404,7 @@ Usage:
 	help := flagSet.Bool("help", false, "print help info")
 	ignore := flagSet.String("ignore", "", "ignore file patterns")
 	include := flagSet.String("include", "*.*", "include file patterns")
+	exclude := flagSet.String("exclude", ".git,.vscode,.idea,vendor,target", "exclude file patterns")
 	s := flagSet.Bool("s", false, "use file short name")
 
 	flagSet.Parse(os.Args[2:])
@@ -413,6 +414,7 @@ Usage:
 	}
 	ignores := strings.Split(*ignore, ",")
 	includes := strings.Split(*include, ",")
+	excludes := strings.Split(*exclude, ",")
 	args := flagSet.Args()
 	roots := make([]string, 0)
 	if len(args) < 1 {
@@ -420,12 +422,12 @@ Usage:
 	} else {
 		roots = append(roots, args...)
 	}
-	fillLine(roots, includes, ignores, *s)
+	fillLine(roots, ignores, includes, excludes, *s)
 }
 
-func fillLine(roots []string, includes []string, ignores []string, shortName bool) {
+func fillLine(roots []string, ignores []string, includes []string, excludes []string, shortName bool) {
 	for _, root := range roots {
-		err := line.Fill(root, includes, ignores, shortName)
+		err := line.Fill(root, ignores, includes, excludes, shortName)
 		if err != nil {
 			printError("fill line error", err)
 		}
