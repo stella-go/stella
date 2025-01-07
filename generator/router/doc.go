@@ -75,7 +75,7 @@ var typeSample = map[string]interface{}{
 	"TEXT":      "abc",
 	"DATE":      "2023-04-05",
 	"DATETIME":  "2023-04-05 06:07:08",
-	"TIMESTAMP": 1681466601123,
+	"TIMESTAMP": "2023-04-05 06:07:08",
 	"default":   struct{}{},
 }
 
