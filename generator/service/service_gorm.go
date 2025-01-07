@@ -25,7 +25,12 @@ import (
 	"github.com/stella-go/stella/version"
 )
 
-func GenerateGorm(pkg string, statements []*parser.Statement, banner bool) string {
+func GenerateGorm(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	serviceName := ""
+	if filename != "service" {
+		serviceName = generator.FirstUpperCamelCase(filename)
+	}
+
 	importsMap := make(map[string]common.Void)
 	importsMap["errors"] = common.Null
 	importsMap["gorm.io/gorm"] = common.Null
@@ -33,24 +38,24 @@ func GenerateGorm(pkg string, statements []*parser.Statement, banner bool) strin
 
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports := c_gorm(statement)
+		function, imports := c_gorm(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = u_gorm(statement)
+		function, imports = u_gorm(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = r_gorm(statement)
+		function, imports = r_gorm(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
-		function, imports = d_gorm(statement)
+		function, imports = d_gorm(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -65,7 +70,7 @@ func GenerateGorm(pkg string, statements []*parser.Statement, banner bool) strin
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
 
-	typeLines := `type Service struct {
+	typeLines := `type %sService struct {
     DB *gorm.DB ` + "`" + `@siu:""` + "`" + `
 }`
 	bannerS := ""
@@ -73,39 +78,39 @@ func GenerateGorm(pkg string, statements []*parser.Statement, banner bool) strin
 		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
 
 	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), typeLines, strings.Join(functions, "\n"))
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, serviceName), strings.Join(functions, "\n"))
 }
 
-func c_gorm(statement *parser.Statement) (string, []string) {
+func c_gorm(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Service) Create%s(s *model.%s) error {
+	funcLines := fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
     r := p.DB.Model(s).Create(s)
     return r.Error
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 	return funcLines, nil
 }
 
-func u_gorm(statement *parser.Statement) (string, []string) {
+func u_gorm(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *Service) Update%s(s *model.%s) error {
+		funcLines := fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) error {
     r := p.DB.Model(s).Updates(s)
     return r.Error
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil
 }
 
-func r_gorm(statement *parser.Statement) (string, []string) {
+func r_gorm(serviceName string, statement *parser.Statement) (string, []string) {
 	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	funcLines += fmt.Sprintf(`func (p *Service) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
+	funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
     stmt := p.DB.Model(s).Where(s)
     var count int64
     many := make([]*model.%s, 0)
@@ -127,7 +132,7 @@ func r_gorm(statement *parser.Statement) (string, []string) {
     }
     return int(count), many, nil
 }
-`, modelName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName, modelName)
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -136,7 +141,7 @@ func r_gorm(statement *parser.Statement) (string, []string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		funcLines += fmt.Sprintf(`func (p *Service) Query%s(s *model.%s) (*model.%s, error) {
+		funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
     ss := &model.%s{}
     r := p.DB.Model(s).Where(s).Take(&ss)
     if r.Error != nil {
@@ -148,21 +153,21 @@ func r_gorm(statement *parser.Statement) (string, []string) {
     }
     return ss, nil
 }
-`, modelName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName, modelName)
 	}
 	return funcLines, nil
 }
 
-func d_gorm(statement *parser.Statement) (string, []string) {
+func d_gorm(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *Service) Delete%s(s *model.%s) error {
+		funcLines := fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) error {
     r := p.DB.Model(s).Delete(s, s)
     return r.Error
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil

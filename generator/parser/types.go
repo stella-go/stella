@@ -190,7 +190,7 @@ func (p *Comment) Fill(sql string) {
 			}
 		}
 	}
-	p.Comment = cut(comment, start, end)
+	p.Comment = cut(comment, start+1, end-1)
 }
 
 func (p *Comment) String() string {

@@ -24,11 +24,11 @@ func TestParse2(t *testing.T) {
 drop table if exists tb_dept2;
 create table tb_dept2(
     Id int auto_increment COMMENT '"ROW id',#部门编号 整形 主键 自增长''""
-    Name varchar(18) COLLATE utf8mb4_bin NOT NULL DEFAULT '123',#部门名称
+    Name varchar(18) COLLATE utf8mb4_bin NOT NULL DEFAULT '123' COMMENT '部门名称',#部门名称
     description varchar(100) DEFAULT NULL,#描述
 	update_time timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update_time',
 primary key (Id,Name)
-) COMMENT='"dept Table';
+) COMMENT='"Table 中文 Table';
 `
 	s := Parse(sql)
 	t.Log(s)

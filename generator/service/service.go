@@ -25,7 +25,12 @@ import (
 	"github.com/stella-go/stella/version"
 )
 
-func Generate(pkg string, statements []*parser.Statement, banner bool) string {
+func Generate(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	serviceName := ""
+	if filename != "service" {
+		serviceName = generator.FirstUpperCamelCase(filename)
+	}
+
 	importsMap := make(map[string]common.Void)
 	importsMap["database/sql"] = common.Null
 	importsMap["github.com/stella-go/siu/fn/data"] = common.Null
@@ -33,24 +38,24 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports := c(statement)
+		function, imports := c(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = u(statement)
+		function, imports = u(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 
-		function, imports = r(statement)
+		function, imports = r(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
-		function, imports = d(statement)
+		function, imports = d(serviceName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -65,7 +70,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
 
-	typeLines := `type Service struct {
+	typeLines := `type %sService struct {
     DB *sql.DB ` + "`" + `@siu:""` + "`" + `
 }`
 	bannerS := ""
@@ -73,42 +78,42 @@ func Generate(pkg string, statements []*parser.Statement, banner bool) string {
 		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
 
 	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), typeLines, strings.Join(functions, "\n"))
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, serviceName), strings.Join(functions, "\n"))
 }
 
-func c(statement *parser.Statement) (string, []string) {
+func c(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Service) Create%s(s *model.%s) error {
+	funcLines := fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
     _, err := data.Create(p.DB, s)
     return err
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 	return funcLines, nil
 }
 
-func u(statement *parser.Statement) (string, []string) {
+func u(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *Service) Update%s(s *model.%s) error {
+		funcLines := fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) error {
     _, err := data.Update(p.DB, s)
     return err
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil
 }
 
-func r(statement *parser.Statement) (string, []string) {
+func r(serviceName string, statement *parser.Statement) (string, []string) {
 	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	funcLines += fmt.Sprintf(`func (p *Service) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
+	funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
     return data.QueryMany(p.DB, s, page, size)
 }
-`, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName)
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -117,24 +122,24 @@ func r(statement *parser.Statement) (string, []string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		funcLines += fmt.Sprintf(`func (p *Service) Query%s(s *model.%s) (*model.%s, error) {
+		funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
     return data.Query(p.DB, s)
 }
-`, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName)
 	}
 	return funcLines, nil
 }
 
-func d(statement *parser.Statement) (string, []string) {
+func d(serviceName string, statement *parser.Statement) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	primaryKeys := getPrimaryKeyPairs(statement)
 
 	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *Service) Delete%s(s *model.%s) error {
+		funcLines := fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) error {
     _, err := data.Delete(p.DB, s)
     return err
 }
-`, modelName, modelName)
+`, serviceName, modelName, modelName)
 		return funcLines, nil
 	}
 	return "", nil

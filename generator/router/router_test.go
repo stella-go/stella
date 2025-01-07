@@ -34,12 +34,12 @@ create table tb_dept2(
 
 func TestGenerate(t *testing.T) {
 	s := parser.Parse(sql)
-	file := Generate("service", s, true)
+	file := Generate("service", "dept", s, true)
 	t.Log(file)
 }
 
 func TestGeneratePanic(t *testing.T) {
 	s := parser.Parse(sql)
-	file := GeneratePanic("service", s, true)
+	file := GeneratePanic("service", "dept", s, true)
 	t.Log(file)
 }

@@ -25,7 +25,12 @@ import (
 	"github.com/stella-go/stella/version"
 )
 
-func GeneratePanic(pkg string, statements []*parser.Statement, banner bool) string {
+func GeneratePanic(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	routerName := ""
+	if filename != "router" {
+		routerName = generator.FirstUpperCamelCase(filename)
+	}
+
 	importsMap := make(map[string]common.Void)
 	functions := make([]string, 0)
 	routers := make([]string, 0)
@@ -35,27 +40,27 @@ func GeneratePanic(pkg string, statements []*parser.Statement, banner bool) stri
 	importsMap["github.com/stella-go/siu/t"] = common.Null
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports, router := c_panic(statement)
+		function, imports, router := c_panic(routerName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 		routers = append(routers, router)
 
-		function, imports, router = u_panic(statement)
+		function, imports, router = u_panic(routerName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 		routers = append(routers, router)
 
-		function, imports, router = r_panic(statement)
+		function, imports, router = r_panic(routerName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
 		}
 		routers = append(routers, router)
-		function, imports, router = d_panic(statement)
+		function, imports, router = d_panic(routerName, statement)
 		functions = append(functions, function)
 		for _, i := range imports {
 			importsMap[i] = common.Null
@@ -71,11 +76,11 @@ func GeneratePanic(pkg string, statements []*parser.Statement, banner bool) stri
 		importsLines = append(importsLines, "\t\""+i+"\"")
 	}
 
-	typeLines := `type Router struct {
-    Service *service.Service ` + "`" + `@siu:""` + "`" + `
+	typeLines := `type %sRouter struct {
+    Service *service.%sService ` + "`" + `@siu:""` + "`" + `
 }
 
-func (p *Router) Router() map[string]gin.HandlerFunc {
+func (p *%sRouter) Router() map[string]gin.HandlerFunc {
     return map[string]gin.HandlerFunc{
 %s
     }
@@ -84,13 +89,13 @@ func (p *Router) Router() map[string]gin.HandlerFunc {
 	if banner {
 		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
 	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, routerName, routerName, routerName, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
 }
 
-func c_panic(statement *parser.Statement) (string, []string, string) {
+func c_panic(routerName string, statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Router) Create%s(c *gin.Context) {
+	funcLines := fmt.Sprintf(`func (p *%sRouter) Create%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -108,14 +113,14 @@ func c_panic(statement *parser.Statement) (string, []string, string) {
     p.Service.Create%s(s)
     c.JSON(200, t.Success())
 }
-`, modelName, modelName, modelName)
+`, routerName, modelName, modelName, modelName)
 	return funcLines, nil, fmt.Sprintf(`        "POST /api/%s": p.Create%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
 }
 
-func u_panic(statement *parser.Statement) (string, []string, string) {
+func u_panic(routerName string, statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Router) Update%s(c *gin.Context) {
+	funcLines := fmt.Sprintf(`func (p *%sRouter) Update%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -133,16 +138,16 @@ func u_panic(statement *parser.Statement) (string, []string, string) {
     p.Service.Update%s(s)
     c.JSON(200, t.Success())
 }
-`, modelName, modelName, modelName)
+`, routerName, modelName, modelName, modelName)
 	return funcLines, nil, fmt.Sprintf(`        "PUT /api/%s": p.Update%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
 }
 
-func r_panic(statement *parser.Statement) (string, []string, string) {
+func r_panic(routerName string, statement *parser.Statement) (string, []string, string) {
 	funcLines := ""
 	routers := make([]string, 0)
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines += fmt.Sprintf(`func (p *Router) QueryMany%s(c *gin.Context) {
+	funcLines += fmt.Sprintf(`func (p *%sRouter) QueryMany%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -177,7 +182,7 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
     count, list := p.Service.QueryMany%s(s, page, size)
     c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
 }
-`, modelName, modelName, modelName, modelName, modelName, modelName)
+`, routerName, modelName, modelName, modelName, modelName, modelName, modelName)
 	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/many": p.QueryMany%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
@@ -187,7 +192,7 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		funcLines += fmt.Sprintf(`func (p *Router) Query%s(c *gin.Context) {
+		funcLines += fmt.Sprintf(`func (p *%sRouter) Query%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -205,16 +210,16 @@ func r_panic(statement *parser.Statement) (string, []string, string) {
     one := p.Service.Query%s(s)
     c.JSON(200, t.SuccessWith(one))
 }
-`, modelName, modelName, modelName)
+`, routerName, modelName, modelName, modelName)
 		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
 	}
 	return funcLines, nil, strings.Join(routers, "\n")
 }
 
-func d_panic(statement *parser.Statement) (string, []string, string) {
+func d_panic(routerName string, statement *parser.Statement) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *Router) Delete%s(c *gin.Context) {
+	funcLines := fmt.Sprintf(`func (p *%sRouter) Delete%s(c *gin.Context) {
     defer func() {
         if err := recover(); err != nil {
             c.JSON(200, t.FailWith(500, "system error"))
@@ -232,6 +237,6 @@ func d_panic(statement *parser.Statement) (string, []string, string) {
     p.Service.Delete%s(s)
     c.JSON(200, t.Success())
 }
-`, modelName, modelName, modelName)
+`, routerName, modelName, modelName, modelName)
 	return funcLines, nil, fmt.Sprintf(`        "DELETE /api/%s": p.Delete%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
 }

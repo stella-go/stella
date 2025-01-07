@@ -167,11 +167,14 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 		{
 			p, f, o := fill(pkg, output, file, "router")
 			filename := f + "_auto.go"
+			if f != "router" {
+				filename = f + "_router_auto.go"
+			}
 			content := func() string {
 				if panicStyle {
-					return router.GeneratePanic(p, statements, banner)
+					return router.GeneratePanic(p, f, statements, banner)
 				} else {
-					return router.Generate(p, statements, banner)
+					return router.Generate(p, f, statements, banner)
 				}
 			}()
 			writeFileTryFormat(std, o, filename, content)
@@ -179,6 +182,9 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 		{
 			_, f, o := fill(pkg, output, file, "doc")
 			filename := f + "_auto.md"
+			if f != "doc" {
+				filename = f + "_doc_auto.md"
+			}
 			content := router.GenerateDoc(statements, banner)
 			writeFileTryFormat(std, o, filename, content)
 		}
@@ -187,14 +193,17 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if generateService {
 		p, f, o := fill(pkg, output, file, "service")
 		filename := f + "_auto.go"
+		if f != "service" {
+			filename = f + "_service_auto.go"
+		}
 		content := func() string {
 			if gorm {
-				return service.GenerateGorm(p, statements, banner)
+				return service.GenerateGorm(p, f, statements, banner)
 			} else {
 				if panicStyle {
-					return service.GeneratePanic(p, statements, banner)
+					return service.GeneratePanic(p, f, statements, banner)
 				} else {
-					return service.Generate(p, statements, banner)
+					return service.Generate(p, f, statements, banner)
 				}
 			}
 		}()
@@ -204,6 +213,9 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if m {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_auto.go"
+		if f != "model" {
+			filename = f + "_model_auto.go"
+		}
 		content := model.Generate(p, statements, banner, gorm)
 		writeFileTryFormat(std, o, filename, content)
 	}
@@ -211,6 +223,9 @@ func generate(pkg string, input string, sub string, output string, std bool, fil
 	if c {
 		p, f, o := fill(pkg, output, file, "model")
 		filename := f + "_curd_auto.go"
+		if f != "model" {
+			filename = f + "_model_curd_auto.go"
+		}
 		content := func() string {
 			if panicStyle {
 				return curd.GeneratePanic(p, statements, banner, logic, asc, desc, round)
