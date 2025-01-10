@@ -103,14 +103,7 @@ if ! $GO generate ; then
     echo "Build Generate failed."
 fi
 
-if [ -z "${GOOS}" ];then
-  GOOS="linux"
-fi
-if [ -z "${GOARCH}" ];then
-   GOARCH="amd64"
-fi
-
-if ! GOOS="${GOOS}" GOARCH="${GOARCH}" $GO build -trimpath -ldflags="-s -w" -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
+if ! $GO build -trimpath -ldflags="-s -w" -o "${ASSEMBLY}/bin/${APPLICATION}" . ; then
     echo "Build main failed."
     exit 1
 fi

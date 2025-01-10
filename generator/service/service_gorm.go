@@ -34,6 +34,7 @@ func GenerateGorm(pkg string, filename string, statements []*parser.Statement, b
 	importsMap := make(map[string]common.Void)
 	importsMap["errors"] = common.Null
 	importsMap["gorm.io/gorm"] = common.Null
+	importsMap["github.com/stella-go/siu/fn/g"] = common.Null
 	functions := make([]string, 0)
 
 	for _, statement := range statements {
@@ -85,8 +86,7 @@ func c_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
 	funcLines := fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
-    r := p.DB.Model(s).Create(s)
-    return r.Error
+    return g.Create(p.DB, s)
 }
 `, serviceName, modelName, modelName)
 	return funcLines, nil
@@ -98,8 +98,8 @@ func u_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 
 	if len(primaryKeys) != 0 {
 		funcLines := fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) error {
-    r := p.DB.Model(s).Updates(s)
-    return r.Error
+    _, err := g.Update(p.DB, s)
+    return err
 }
 `, serviceName, modelName, modelName)
 		return funcLines, nil
@@ -111,28 +111,9 @@ func r_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 	funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
-    stmt := p.DB.Model(s).Where(s)
-    var count int64
-    many := make([]*model.%s, 0)
-    r := stmt.Count(&count)
-    if r.Error != nil {
-        if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-            return 0, many, nil
-        } else {
-            return 0, nil, r.Error
-        }
-    }
-    r = stmt.Offset((page - 1) * size).Limit(size).Find(&many)
-    if r.Error != nil {
-        if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-            return 0, many, nil
-        } else {
-            return 0, nil, r.Error
-        }
-    }
-    return int(count), many, nil
+    return g.QueryMany(p.DB, s, page, size)
 }
-`, serviceName, modelName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName)
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -142,18 +123,10 @@ func r_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 	}
 	if len(primaryKeyNames) > 0 {
 		funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
-    ss := &model.%s{}
-    r := p.DB.Model(s).Where(s).Take(&ss)
-    if r.Error != nil {
-        if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-            return nil, nil
-        } else {
-            return nil, r.Error
-        }
-    }
-    return ss, nil
+    _, err := g.Delete(p.DB, s)
+    return err
 }
-`, serviceName, modelName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName)
 	}
 	return funcLines, nil
 }
