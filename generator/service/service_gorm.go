@@ -123,8 +123,7 @@ func r_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 	}
 	if len(primaryKeyNames) > 0 {
 		funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
-    _, err := g.Delete(p.DB, s)
-    return err
+    return g.Query(p.DB, s)
 }
 `, serviceName, modelName, modelName, modelName)
 	}
@@ -137,8 +136,8 @@ func d_gorm(serviceName string, statement *parser.Statement) (string, []string) 
 
 	if len(primaryKeys) != 0 {
 		funcLines := fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) error {
-    r := p.DB.Model(s).Delete(s, s)
-    return r.Error
+    _, err := g.Delete(p.DB, s)
+    return err
 }
 `, serviceName, modelName, modelName)
 		return funcLines, nil
