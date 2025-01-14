@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -109,7 +110,12 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 					gormTags = append(gormTags, "not null")
 				}
 				if col.DefaultValue != nil && col.DefaultValue.DefaultValue {
-					gormTags = append(gormTags, "default:"+col.DefaultValue.Value)
+					defaultValue := col.DefaultValue.Value
+					defaultValue = strconv.Quote(defaultValue)
+					if defaultValue != "" {
+						defaultValue = defaultValue[1 : len(defaultValue)-1]
+					}
+					gormTags = append(gormTags, "default:"+defaultValue)
 				}
 
 				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" gorm:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(gormTags, ";"))
