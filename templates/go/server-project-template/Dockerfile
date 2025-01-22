@@ -4,8 +4,9 @@ ARG GO_VERSION=${GO_VERSION}
 ARG GO_FILENAME=go${GO_VERSION}.linux-amd64.tar.gz
 
 RUN \
-    # sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-    #     -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.tuna.tsinghua.edu.cn|g' \
+    # sed -e "s|^mirrorlist=|#mirrorlist=|g" \
+    #     -e "s|^#baseurl=http://mirror.centos.org/centos/\$releasever|baseurl=http://mirrors.tuna.tsinghua.edu.cn/centos-vault/7.4|g" \
+    #     -e "s|^#baseurl=http://mirror.centos.org/\$contentdir/\$releasever|baseurl=http://mirrors.tuna.tsinghua.edu.cn/centos-vault/7.4|g" \
     #     -i.bak \
     #     /etc/yum.repos.d/CentOS-*.repo && \
     yum install -y epel-release && \
