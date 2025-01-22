@@ -32,7 +32,6 @@ func GenerateGorm(pkg string, filename string, statements []*parser.Statement, b
 	}
 
 	importsMap := make(map[string]common.Void)
-	importsMap["errors"] = common.Null
 	importsMap["gorm.io/gorm"] = common.Null
 	importsMap["github.com/stella-go/siu/fn/g"] = common.Null
 	functions := make([]string, 0)
