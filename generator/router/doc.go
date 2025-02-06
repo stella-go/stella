@@ -273,7 +273,7 @@ func r_doc(statement *parser.Statement) string {
 
 	paragraph += fmt.Sprintf(`### Query All %s
 - Ruquest
-POST /api/%s/all
+POST /api/%s/many
 
 Content-Type: application/json;
 
