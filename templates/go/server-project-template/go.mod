@@ -1,4 +1,4 @@
-module demo
+module {{ project-name }}
 
 go 1.20
 
