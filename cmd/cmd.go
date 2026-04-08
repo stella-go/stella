@@ -55,7 +55,7 @@ Usage:
 	p := flagSet.String("p", "", "package name")
 
 	m := flagSet.Bool("m", true, "generate models")
-	gorm := flagSet.Bool("gorm", false, "models with gorm tags")
+	gorm := flagSet.Bool("gorm", true, "models with gorm tags")
 
 	c := flagSet.Bool("curd", false, "generate curd")
 	asc := flagSet.String("asc", "", "order by")
@@ -77,7 +77,45 @@ Usage:
 		flagSet.Usage()
 		return
 	}
-	generate(*p, *i, *sub, *o, *std, *f, *banner, *m, *gorm, *c, *logic, *asc, *desc, *round, *generateRouter, *generateService, *panicStyle)
+	generate(&generateOptions{
+		pkg:             *p,
+		input:           *i,
+		sub:             *sub,
+		output:          *o,
+		std:             *std,
+		file:            *f,
+		banner:          *banner,
+		model:           *m,
+		gorm:            *gorm,
+		curd:            *c,
+		logic:           *logic,
+		asc:             *asc,
+		desc:            *desc,
+		round:           *round,
+		generateRouter:  *generateRouter,
+		generateService: *generateService,
+		panicStyle:      *panicStyle,
+	})
+}
+
+type generateOptions struct {
+	pkg             string
+	input           string
+	sub             string
+	output          string
+	std             bool
+	file            string
+	banner          bool
+	model           bool
+	gorm            bool
+	curd            bool
+	logic           string
+	asc             string
+	desc            string
+	round           string
+	generateRouter  bool
+	generateService bool
+	panicStyle      bool
 }
 
 func readFileWithStdin(input string, sub string) string {
@@ -156,84 +194,84 @@ func readFileWithStdin(input string, sub string) string {
 	return sql
 }
 
-func generate(pkg string, input string, sub string, output string, std bool, file string, banner bool, m bool, gorm bool, c bool, logic string, asc string, desc string, round string, generateRouter bool, generateService bool, panicStyle bool) {
-	sql := readFileWithStdin(input, sub)
+func generate(opts *generateOptions) {
+	sql := readFileWithStdin(opts.input, opts.sub)
 	statements := parser.Parse(sql)
 	if len(statements) == 0 {
 		return
 	}
 
-	if generateRouter {
+	if opts.generateRouter {
 		{
-			p, f, o := fill(pkg, output, file, "router")
+			p, f, o := fill(opts.pkg, opts.output, opts.file, "router")
 			filename := f + "_auto.go"
 			if f != "router" {
 				filename = f + "_router_auto.go"
 			}
 			content := func() string {
-				if panicStyle {
-					return router.GeneratePanic(p, f, statements, banner)
+				if opts.panicStyle {
+					return router.GeneratePanic(p, f, statements, opts.banner)
 				} else {
-					return router.Generate(p, f, statements, banner)
+					return router.Generate(p, f, statements, opts.banner)
 				}
 			}()
-			writeFileTryFormat(std, o, filename, content)
+			writeFileTryFormat(opts.std, o, filename, content)
 		}
 		{
-			_, f, o := fill(pkg, output, file, "doc")
+			_, f, o := fill(opts.pkg, opts.output, opts.file, "doc")
 			filename := f + "_auto.md"
 			if f != "doc" {
 				filename = f + "_doc_auto.md"
 			}
-			content := router.GenerateDoc(statements, banner)
-			writeFileTryFormat(std, o, filename, content)
+			content := router.GenerateDoc(statements, opts.banner)
+			writeFileTryFormat(opts.std, o, filename, content)
 		}
 	}
 
-	if generateService {
-		p, f, o := fill(pkg, output, file, "service")
+	if opts.generateService {
+		p, f, o := fill(opts.pkg, opts.output, opts.file, "service")
 		filename := f + "_auto.go"
 		if f != "service" {
 			filename = f + "_service_auto.go"
 		}
 		content := func() string {
-			if gorm {
-				return service.GenerateGorm(p, f, statements, banner)
+			if opts.gorm {
+				return service.GenerateGorm(p, f, statements, opts.banner)
 			} else {
-				if panicStyle {
-					return service.GeneratePanic(p, f, statements, banner)
+				if opts.panicStyle {
+					return service.GeneratePanic(p, f, statements, opts.banner)
 				} else {
-					return service.Generate(p, f, statements, banner)
+					return service.Generate(p, f, statements, opts.banner)
 				}
 			}
 		}()
-		writeFileTryFormat(std, o, filename, content)
+		writeFileTryFormat(opts.std, o, filename, content)
 	}
 
-	if m {
-		p, f, o := fill(pkg, output, file, "model")
+	if opts.model {
+		p, f, o := fill(opts.pkg, opts.output, opts.file, "model")
 		filename := f + "_auto.go"
 		if f != "model" {
 			filename = f + "_model_auto.go"
 		}
-		content := model.Generate(p, statements, banner, gorm)
-		writeFileTryFormat(std, o, filename, content)
+		content := model.Generate(p, statements, opts.banner, opts.gorm)
+		writeFileTryFormat(opts.std, o, filename, content)
 	}
 
-	if c {
-		p, f, o := fill(pkg, output, file, "model")
+	if opts.curd {
+		p, f, o := fill(opts.pkg, opts.output, opts.file, "model")
 		filename := f + "_curd_auto.go"
 		if f != "model" {
 			filename = f + "_model_curd_auto.go"
 		}
 		content := func() string {
-			if panicStyle {
-				return curd.GeneratePanic(p, statements, banner, logic, asc, desc, round)
+			if opts.panicStyle {
+				return curd.GeneratePanic(p, statements, opts.banner, opts.logic, opts.asc, opts.desc, opts.round)
 			} else {
-				return curd.Generate(p, statements, banner, logic, asc, desc, round)
+				return curd.Generate(p, statements, opts.banner, opts.logic, opts.asc, opts.desc, opts.round)
 			}
 		}()
-		writeFileTryFormat(std, o, filename, content)
+		writeFileTryFormat(opts.std, o, filename, content)
 	}
 }
 
@@ -268,14 +306,14 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 	} else {
 		exist, err := isExists(output)
 		if err != nil {
-			printError("read outputh path error", err)
+			printError("read output path error", err)
 			fmt.Println(content)
 			return
 		}
 		if !exist {
 			err := os.MkdirAll(output, 0755)
 			if err != nil {
-				printError("create outputh path error", err)
+				printError("create output path error", err)
 				fmt.Println(content)
 				return
 			}
@@ -283,7 +321,7 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 		fullPath := path.Join(output, filename)
 		exist, err = isExists(fullPath)
 		if err != nil {
-			printError("read outputh file error", err)
+			printError("read output file error", err)
 			fmt.Println(content)
 			return
 		}
@@ -299,7 +337,7 @@ func writeFileTryFormat(std bool, output string, filename string, content string
 			if answer == "Y" || answer == "y" {
 				err := os.RemoveAll(fullPath)
 				if err != nil {
-					printError("remove outputh path error", err)
+					printError("remove output path error", err)
 					fmt.Println(content)
 					return
 				}
@@ -330,7 +368,7 @@ Usage:
 `, version.VERSION)
 		flagSet.PrintDefaults()
 	}
-	l := flagSet.String("l", "go", "projcet language")
+	l := flagSet.String("l", "go", "project language")
 	t := flagSet.String("t", "server", "project type [server/sdk]")
 	n := flagSet.String("n", "demo", "project name")
 	o := flagSet.String("o", ".", "output dictionary")
@@ -370,7 +408,7 @@ func createProj(language string, stype string, name string, output string) {
 		if answer == "Y" || answer == "y" {
 			err := os.RemoveAll(projDir)
 			if err != nil {
-				printError("remove outputh path error", err)
+				printError("remove output path error", err)
 				return
 			}
 		}

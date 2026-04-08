@@ -196,3 +196,95 @@ func (p *Comment) Fill(sql string) {
 func (p *Comment) String() string {
 	return p.Comment
 }
+
+// GetUniqKeyPairs returns columns grouped by unique keys (primary + unique, both inline and table-level).
+func GetUniqKeyPairs(statement *Statement) [][]*ColumnDefinition {
+	keyPairs := make([][]*ColumnDefinition, 0)
+	for _, col := range statement.Columns {
+		if col.PrimaryKey || col.UniqueKey {
+			keyPairs = append(keyPairs, []*ColumnDefinition{col})
+		}
+	}
+	for _, pair := range statement.PrimaryKeyPairs {
+		p := make([]*ColumnDefinition, 0)
+		for _, k := range pair {
+			for _, c := range statement.Columns {
+				if strings.EqualFold(c.ColumnName.Name, k.Name) {
+					p = append(p, c)
+					break
+				}
+			}
+		}
+		if len(p) != 0 {
+			keyPairs = append(keyPairs, p)
+		}
+	}
+	for _, pair := range statement.UniqKeyPairs {
+		p := make([]*ColumnDefinition, 0)
+		for _, k := range pair {
+			for _, c := range statement.Columns {
+				if strings.EqualFold(c.ColumnName.Name, k.Name) {
+					p = append(p, c)
+					break
+				}
+			}
+		}
+		if len(p) != 0 {
+			keyPairs = append(keyPairs, p)
+		}
+	}
+	return keyPairs
+}
+
+// GetPrimaryKeyPairs returns columns grouped by primary keys (both inline and table-level).
+func GetPrimaryKeyPairs(statement *Statement) [][]*ColumnDefinition {
+	keyPairs := make([][]*ColumnDefinition, 0)
+	for _, col := range statement.Columns {
+		if col.PrimaryKey {
+			keyPairs = append(keyPairs, []*ColumnDefinition{col})
+		}
+	}
+	for _, pair := range statement.PrimaryKeyPairs {
+		p := make([]*ColumnDefinition, 0)
+		for _, k := range pair {
+			for _, c := range statement.Columns {
+				if strings.EqualFold(c.ColumnName.Name, k.Name) {
+					p = append(p, c)
+					break
+				}
+			}
+		}
+		if len(p) != 0 {
+			keyPairs = append(keyPairs, p)
+		}
+	}
+	return keyPairs
+}
+
+// GetIndexKeyPairs returns columns grouped by index keys.
+func GetIndexKeyPairs(statement *Statement) [][]*ColumnDefinition {
+	keyPairs := make([][]*ColumnDefinition, 0)
+	for _, pair := range statement.IndexKeyPairs {
+		p := make([]*ColumnDefinition, 0)
+		for _, k := range pair {
+			for _, c := range statement.Columns {
+				if c.ColumnName.Name == k.Name {
+					p = append(p, c)
+					break
+				}
+			}
+		}
+		keyPairs = append(keyPairs, p)
+	}
+	return keyPairs
+}
+
+// ContainsColumn checks if a column is in the given column list.
+func ContainsColumn(arr []*ColumnDefinition, s *ColumnDefinition) bool {
+	for _, a := range arr {
+		if s.ColumnName.Name == a.ColumnName.Name {
+			return true
+		}
+	}
+	return false
+}

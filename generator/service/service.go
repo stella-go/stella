@@ -17,103 +17,150 @@ package service
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
-	"github.com/stella-go/stella/version"
+)
+
+type ServiceStyle int
+
+const (
+	StyleNormal ServiceStyle = iota
+	StyleGorm
+	StylePanic
 )
 
 func Generate(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	return generateService(pkg, filename, statements, banner, StyleNormal)
+}
+
+func GenerateGorm(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	return generateService(pkg, filename, statements, banner, StyleGorm)
+}
+
+func GeneratePanic(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	return generateService(pkg, filename, statements, banner, StylePanic)
+}
+
+func generateService(pkg string, filename string, statements []*parser.Statement, banner bool, style ServiceStyle) string {
 	serviceName := ""
 	if filename != "service" {
 		serviceName = generator.FirstUpperCamelCase(filename)
 	}
 
-	importsMap := make(map[string]common.Void)
-	importsMap["database/sql"] = common.Null
-	importsMap["github.com/stella-go/siu/fn/data"] = common.Null
-	functions := make([]string, 0)
+	var importsMap generator.ImportsSet
+	var dbType string
+	var dataPrefix string
+	switch style {
+	case StyleGorm:
+		importsMap = generator.NewImportsSet("gorm.io/gorm", "github.com/stella-go/siu/fn/g")
+		dbType = "*gorm.DB"
+		dataPrefix = "g"
+	default:
+		importsMap = generator.NewImportsSet("database/sql", "github.com/stella-go/siu/fn/data")
+		dbType = "*sql.DB"
+		dataPrefix = "data"
+	}
 
+	functions := make([]string, 0)
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports := c(serviceName, statement)
+		function, imports := genCreate(serviceName, statement, style, dataPrefix)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 
-		function, imports = u(serviceName, statement)
+		function, imports = genUpdate(serviceName, statement, style, dataPrefix)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 
-		function, imports = r(serviceName, statement)
+		function, imports = genQuery(serviceName, statement, style, dataPrefix)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
-		function, imports = d(serviceName, statement)
+		importsMap.Add(imports...)
+
+		function, imports = genDelete(serviceName, statement, style, dataPrefix)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 	}
 
-	importsLines := make([]string, 0)
-	for i := range importsMap {
-		if i == "" {
-			continue
-		}
-		importsLines = append(importsLines, "\t\""+i+"\"")
-	}
+	typeLines := fmt.Sprintf(`type %sService struct {
+    DB %s `+"`"+`@siu:""`+"`"+`
+}`, serviceName, dbType)
 
-	typeLines := `type %sService struct {
-    DB *sql.DB ` + "`" + `@siu:""` + "`" + `
-}`
-	bannerS := ""
-	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
-
-	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, serviceName), strings.Join(functions, "\n"))
+	bannerS := generator.Banner(banner)
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsMap.Lines(), "\n"), typeLines, strings.Join(functions, "\n"))
 }
 
-func c(serviceName string, statement *parser.Statement) (string, []string) {
+func genCreate(serviceName string, statement *parser.Statement, style ServiceStyle, dataPrefix string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-
-	funcLines := fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
-    _, err := data.Create(p.DB, s)
+	switch style {
+	case StylePanic:
+		return fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) {
+    _, err := %s.Create(p.DB, s)
+    if err != nil {
+        panic(err)
+    }
+}
+`, serviceName, modelName, modelName, dataPrefix), nil
+	case StyleGorm:
+		return fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
+    return %s.Create(p.DB, s)
+}
+`, serviceName, modelName, modelName, dataPrefix), nil
+	default:
+		return fmt.Sprintf(`func (p *%sService) Create%s(s *model.%s) error {
+    _, err := %s.Create(p.DB, s)
     return err
 }
-`, serviceName, modelName, modelName)
-	return funcLines, nil
+`, serviceName, modelName, modelName, dataPrefix), nil
+	}
 }
 
-func u(serviceName string, statement *parser.Statement) (string, []string) {
+func genUpdate(serviceName string, statement *parser.Statement, style ServiceStyle, dataPrefix string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	primaryKeys := getPrimaryKeyPairs(statement)
+	primaryKeys := parser.GetPrimaryKeyPairs(statement)
+	if len(primaryKeys) == 0 {
+		return "", nil
+	}
 
-	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) error {
-    _, err := data.Update(p.DB, s)
+	switch style {
+	case StylePanic:
+		return fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) {
+    _, err := %s.Update(p.DB, s)
+    if err != nil {
+        panic(err)
+    }
+}
+`, serviceName, modelName, modelName, dataPrefix), nil
+	default:
+		return fmt.Sprintf(`func (p *%sService) Update%s(s *model.%s) error {
+    _, err := %s.Update(p.DB, s)
     return err
 }
-`, serviceName, modelName, modelName)
-		return funcLines, nil
+`, serviceName, modelName, modelName, dataPrefix), nil
 	}
-	return "", nil
 }
 
-func r(serviceName string, statement *parser.Statement) (string, []string) {
+func genQuery(serviceName string, statement *parser.Statement, style ServiceStyle, dataPrefix string) (string, []string) {
 	funcLines := ""
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
-    return data.QueryMany(p.DB, s, page, size)
+
+	switch style {
+	case StylePanic:
+		funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s) {
+    count, many, err := %s.QueryMany(p.DB, s, page, size)
+    if err != nil {
+        panic(err)
+    }
+    return count, many
 }
-`, serviceName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName, dataPrefix)
+	default:
+		funcLines += fmt.Sprintf(`func (p *%sService) QueryMany%s(s *model.%s, page int, size int) (int, []*model.%s, error) {
+    return %s.QueryMany(p.DB, s, page, size)
+}
+`, serviceName, modelName, modelName, modelName, dataPrefix)
+	}
+
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -122,49 +169,47 @@ func r(serviceName string, statement *parser.Statement) (string, []string) {
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
-    return data.Query(p.DB, s)
+		switch style {
+		case StylePanic:
+			funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) *model.%s {
+    one, err := %s.Query(p.DB, s)
+    if err != nil {
+        panic(err)
+    }
+    return one
 }
-`, serviceName, modelName, modelName, modelName)
+`, serviceName, modelName, modelName, modelName, dataPrefix)
+		default:
+			funcLines += fmt.Sprintf(`func (p *%sService) Query%s(s *model.%s) (*model.%s, error) {
+    return %s.Query(p.DB, s)
+}
+`, serviceName, modelName, modelName, modelName, dataPrefix)
+		}
 	}
 	return funcLines, nil
 }
 
-func d(serviceName string, statement *parser.Statement) (string, []string) {
+func genDelete(serviceName string, statement *parser.Statement, style ServiceStyle, dataPrefix string) (string, []string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
-	primaryKeys := getPrimaryKeyPairs(statement)
+	primaryKeys := parser.GetPrimaryKeyPairs(statement)
+	if len(primaryKeys) == 0 {
+		return "", nil
+	}
 
-	if len(primaryKeys) != 0 {
-		funcLines := fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) error {
-    _, err := data.Delete(p.DB, s)
+	switch style {
+	case StylePanic:
+		return fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) {
+    _, err := %s.Delete(p.DB, s)
+    if err != nil {
+        panic(err)
+    }
+}
+`, serviceName, modelName, modelName, dataPrefix), nil
+	default:
+		return fmt.Sprintf(`func (p *%sService) Delete%s(s *model.%s) error {
+    _, err := %s.Delete(p.DB, s)
     return err
 }
-`, serviceName, modelName, modelName)
-		return funcLines, nil
+`, serviceName, modelName, modelName, dataPrefix), nil
 	}
-	return "", nil
-}
-
-func getPrimaryKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
-	keyPairs := make([][]*parser.ColumnDefinition, 0)
-	for _, col := range statement.Columns {
-		if col.PrimaryKey || col.UniqueKey {
-			keyPairs = append(keyPairs, []*parser.ColumnDefinition{col})
-		}
-	}
-	for _, pair := range statement.PrimaryKeyPairs {
-		p := make([]*parser.ColumnDefinition, 0)
-		for _, k := range pair {
-			for _, c := range statement.Columns {
-				if strings.EqualFold(c.ColumnName.Name, k.Name) {
-					p = append(p, c)
-					break
-				}
-			}
-		}
-		if len(p) != 0 {
-			keyPairs = append(keyPairs, p)
-		}
-	}
-	return keyPairs
 }

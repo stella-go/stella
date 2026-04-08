@@ -18,11 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
-	"github.com/stella-go/stella/version"
 )
 
 type RequestBean struct {
@@ -111,10 +109,7 @@ PORT=8080
 		paragraphs = append(paragraphs, paragraph)
 	}
 
-	bannerS := ""
-	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
-	}
+	bannerS := generator.Banner(banner)
 	return fmt.Sprintf("# Application Document\n%s\n%s\n%s", bannerS, header, strings.Join(paragraphs, "\n"))
 }
 
@@ -135,7 +130,7 @@ func fields_doc(statement *parser.Statement) string {
 	doc := fmt.Sprintf("### %s Fields\n", name)
 	for _, column := range statement.Columns {
 		name := ""
-		if statement.Comment != nil {
+		if column.Comment != nil {
 			name = column.Comment.Comment
 		} else {
 			name = column.ColumnName.Name
@@ -172,7 +167,7 @@ func c_doc(statement *parser.Statement) string {
 	result := string(bts)
 
 	return fmt.Sprintf(`### Create %s
-- Ruquest
+- Request
 POST /api/%s
 
 Content-Type: application/json;
@@ -217,7 +212,7 @@ func u_doc(statement *parser.Statement) string {
 	result := string(bts)
 
 	return fmt.Sprintf(`### Update %s
-- Ruquest
+- Request
 PUT /api/%s
 
 Content-Type: application/json;
@@ -272,7 +267,7 @@ func r_doc(statement *parser.Statement) string {
 	result := string(bts)
 
 	paragraph += fmt.Sprintf(`### Query All %s
-- Ruquest
+- Request
 POST /api/%s/many
 
 Content-Type: application/json;
@@ -291,7 +286,7 @@ curl -XPOST -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s/m
 `, name, generator.ToStrikeCase(statement.TableName.Name), content, result, generator.ToStrikeCase(statement.TableName.Name), content, result)
 
 	data = NewLinkedMap()
-	primaryKeys := getPrimaryKeyPairs(statement)
+	primaryKeys := parser.GetPrimaryKeyPairs(statement)
 	if len(primaryKeys) > 0 {
 		keys := primaryKeys[0]
 		for _, column := range keys {
@@ -342,7 +337,7 @@ func d_doc(statement *parser.Statement) string {
 		name = statement.TableName.Name
 	}
 	data := NewLinkedMap()
-	primaryKeys := getPrimaryKeyPairs(statement)
+	primaryKeys := parser.GetPrimaryKeyPairs(statement)
 	if len(primaryKeys) > 0 {
 		keys := primaryKeys[0]
 		for _, column := range keys {
@@ -378,28 +373,4 @@ curl -XDELETE -H "Content-Type: application/json" "http://${HOST}:${PORT}/api/%s
 %s
 `+"```"+`
 `, name, generator.ToStrikeCase(statement.TableName.Name), content, result, generator.ToStrikeCase(statement.TableName.Name), content, result)
-}
-
-func getPrimaryKeyPairs(statement *parser.Statement) [][]*parser.ColumnDefinition {
-	keyPairs := make([][]*parser.ColumnDefinition, 0)
-	for _, col := range statement.Columns {
-		if col.PrimaryKey {
-			keyPairs = append(keyPairs, []*parser.ColumnDefinition{col})
-		}
-	}
-	for _, pair := range statement.PrimaryKeyPairs {
-		p := make([]*parser.ColumnDefinition, 0)
-		for _, k := range pair {
-			for _, c := range statement.Columns {
-				if strings.EqualFold(c.ColumnName.Name, k.Name) {
-					p = append(p, c)
-					break
-				}
-			}
-		}
-		if len(p) != 0 {
-			keyPairs = append(keyPairs, p)
-		}
-	}
-	return keyPairs
 }

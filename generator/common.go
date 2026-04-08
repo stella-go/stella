@@ -15,9 +15,54 @@
 package generator
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/stella-go/stella/version"
 )
+
+var (
+	reCamel = regexp.MustCompile(`_(\w)`)
+	reUpper = regexp.MustCompile(`[A-Z]`)
+)
+
+// ImportsSet is a set of import paths, replacing map[string]common.Void.
+type ImportsSet map[string]struct{}
+
+func NewImportsSet(imports ...string) ImportsSet {
+	m := make(ImportsSet)
+	for _, i := range imports {
+		m[i] = struct{}{}
+	}
+	return m
+}
+
+func (m ImportsSet) Add(imports ...string) {
+	for _, i := range imports {
+		m[i] = struct{}{}
+	}
+}
+
+func (m ImportsSet) Lines() []string {
+	lines := make([]string, 0, len(m))
+	for i := range m {
+		if i == "" {
+			continue
+		}
+		lines = append(lines, "\t\""+i+"\"")
+	}
+	return lines
+}
+
+// Banner returns an auto-generation banner comment or empty string.
+func Banner(banner bool) string {
+	if !banner {
+		return ""
+	}
+	return fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
+}
 
 func FirstUpperCamelCase(s string) string {
 	s = ToCamelCase(s)
@@ -26,20 +71,17 @@ func FirstUpperCamelCase(s string) string {
 }
 
 func ToCamelCase(s string) string {
-	re := regexp.MustCompile(`_(\w)`)
-	return re.ReplaceAllStringFunc(s, toUpper)
+	return reCamel.ReplaceAllStringFunc(s, toUpper)
 }
 
 func ToSnakeCase(s string) string {
-	re := regexp.MustCompile(`[A-Z]`)
-	snake := re.ReplaceAllStringFunc(s, toSnake)
+	snake := reUpper.ReplaceAllStringFunc(s, toSnake)
 	return strings.Trim(snake, "_")
 }
 
 func ToStrikeCase(s string) string {
 	s = strings.ReplaceAll(s, "_", "-")
-	re := regexp.MustCompile(`[A-Z]`)
-	snake := re.ReplaceAllStringFunc(s, toStrike)
+	snake := reUpper.ReplaceAllStringFunc(s, toStrike)
 	return strings.Trim(snake, "-")
 }
 

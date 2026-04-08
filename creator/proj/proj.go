@@ -16,7 +16,7 @@ package proj
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -56,7 +56,8 @@ func Create(language string, stype string, name string, output string) error {
 			if err != nil {
 				return err
 			}
-			raw, err := ioutil.ReadAll(file)
+			defer file.Close()
+			raw, err := io.ReadAll(file)
 			if err != nil {
 				return err
 			}
@@ -68,7 +69,7 @@ func Create(language string, stype string, name string, output string) error {
 			content = strings.ReplaceAll(content, projectNameCamel, camelName)
 			content = strings.ReplaceAll(content, projectNameSnake, snakeName)
 			content = strings.ReplaceAll(content, projectNameUpper, upperName)
-			err = ioutil.WriteFile(newPath, []byte(content), info.Mode())
+			err = os.WriteFile(newPath, []byte(content), info.Mode())
 			if err != nil {
 				return err
 			}

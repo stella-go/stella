@@ -18,12 +18,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
-	"github.com/stella-go/stella/version"
 )
 
 var (
@@ -87,8 +84,7 @@ func (s *Struct) toString() string {
 }
 
 func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool) string {
-	importsMap := make(map[string]common.Void)
-	importsMap["fmt"] = common.Null
+	importsMap := generator.NewImportsSet("fmt")
 	structs := make([]string, 0)
 	for _, statement := range statements {
 		fields := make([]*Field, 0)
@@ -97,7 +93,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 			if !ok {
 				typ = typeMapping["default"]
 			}
-			importsMap[typeImportsMapping[typ]] = common.Null
+			importsMap.Add(typeImportsMapping[typ])
 			if gorm {
 				gormTags := []string{fmt.Sprintf("column:%s", col.ColumnName)}
 				if isPrimaryKey(statement, col) {
@@ -127,7 +123,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 					freeTags = append(freeTags, "primary")
 				}
 				if col.AutoIncrement {
-					freeTags = append(freeTags, "auto-incrment")
+					freeTags = append(freeTags, "auto-increment")
 				}
 				if col.CurrentTimestamp {
 					freeTags = append(freeTags, "current-timestamp")
@@ -145,19 +141,9 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 		structs = append(structs, struc.String())
 	}
 
-	importsLines := make([]string, 0)
-	for i := range importsMap {
-		if i == "" {
-			continue
-		}
-		importsLines = append(importsLines, "\t\""+i+"\"")
-	}
-	bannerS := ""
-	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
+	bannerS := generator.Banner(banner)
 
-	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), strings.Join(structs, "\n"))
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsMap.Lines(), "\n"), strings.Join(structs, "\n"))
 }
 
 func isPrimaryKey(statement *parser.Statement, col *parser.ColumnDefinition) bool {

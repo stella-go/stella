@@ -17,63 +17,50 @@ package router
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/stella-go/stella/common"
 	"github.com/stella-go/stella/generator"
 	"github.com/stella-go/stella/generator/parser"
-	"github.com/stella-go/stella/version"
 )
 
 func Generate(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	return generateRouter(pkg, filename, statements, banner, false)
+}
+
+func GeneratePanic(pkg string, filename string, statements []*parser.Statement, banner bool) string {
+	return generateRouter(pkg, filename, statements, banner, true)
+}
+
+func generateRouter(pkg string, filename string, statements []*parser.Statement, banner bool, panicStyle bool) string {
 	routerName := ""
 	if filename != "router" {
 		routerName = generator.FirstUpperCamelCase(filename)
 	}
 
-	importsMap := make(map[string]common.Void)
+	importsMap := generator.NewImportsSet("github.com/gin-gonic/gin", "github.com/stella-go/siu", "github.com/stella-go/siu/t")
 	functions := make([]string, 0)
 	routers := make([]string, 0)
 
-	importsMap["github.com/gin-gonic/gin"] = common.Null
-	importsMap["github.com/stella-go/siu"] = common.Null
-	importsMap["github.com/stella-go/siu/t"] = common.Null
 	for _, statement := range statements {
 		functions = append(functions, "// ==================== "+generator.FirstUpperCamelCase(statement.TableName.Name)+" ====================")
-		function, imports, router := c(routerName, statement)
+		function, imports, router := c(routerName, statement, panicStyle)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 		routers = append(routers, router)
 
-		function, imports, router = u(routerName, statement)
+		function, imports, router = u(routerName, statement, panicStyle)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 		routers = append(routers, router)
 
-		function, imports, router = r(routerName, statement)
+		function, imports, router = r(routerName, statement, panicStyle)
 		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
+		importsMap.Add(imports...)
 		routers = append(routers, router)
-		function, imports, router = d(routerName, statement)
-		functions = append(functions, function)
-		for _, i := range imports {
-			importsMap[i] = common.Null
-		}
-		routers = append(routers, router)
-	}
 
-	importsLines := make([]string, 0)
-	for i := range importsMap {
-		if i == "" {
-			continue
-		}
-		importsLines = append(importsLines, "\t\""+i+"\"")
+		function, imports, router = d(routerName, statement, panicStyle)
+		functions = append(functions, function)
+		importsMap.Add(imports...)
+		routers = append(routers, router)
 	}
 
 	typeLines := `type %sRouter struct {
@@ -85,17 +72,102 @@ func (p *%sRouter) Router() map[string]gin.HandlerFunc {
 %s
     }
 }`
-	bannerS := ""
-	if banner {
-		bannerS = fmt.Sprintf("\n/**\n * Auto Generate by github.com/stella-go/stella %s on %s.\n */\n", version.VERSION, time.Now().Format("2006/01/02"))
-	}
-	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsLines, "\n"), fmt.Sprintf(typeLines, routerName, routerName, routerName, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
+	bannerS := generator.Banner(banner)
+	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsMap.Lines(), "\n"), fmt.Sprintf(typeLines, routerName, routerName, routerName, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
 }
 
-func c(routerName string, statement *parser.Statement) (string, []string, string) {
+// sqlTypeToParamType maps SQL types to JSON Schema types for siu.ParamDef.
+func sqlTypeToParamType(sqlType string) string {
+	switch sqlType {
+	case "TINYINT", "INT", "BIGINT":
+		return "integer"
+	case "FLOAT":
+		return "number"
+	case "CHAR", "VARCHAR", "TEXT", "DATE", "DATETIME", "TIMESTAMP":
+		return "string"
+	default:
+		return "string"
+	}
+}
+
+// buildParamDef generates a siu.ParamDef literal string.
+func buildParamDef(col *parser.ColumnDefinition, required bool) string {
+	paramType := sqlTypeToParamType(col.Type)
+	desc := ""
+	if col.Comment != nil && col.Comment.Comment != "" {
+		desc = col.Comment.Comment
+	}
+	parts := []string{fmt.Sprintf("Type: %q", paramType)}
+	if desc != "" {
+		parts = append(parts, fmt.Sprintf("Description: %q", desc))
+	}
+	if required {
+		parts = append(parts, "Required: true")
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// buildMetaRouter returns a router map line wrapping the handler with siu.Meta().
+// Parameters reflect the RequestBean[T] structure: timestamp + data{...model fields}.
+func buildMetaRouter(route string, handlerExpr string, summary string, columns []*parser.ColumnDefinition, requiredCols []*parser.ColumnDefinition, excludeAutoIncrement bool, extraParams [][2]string) string {
+	requiredSet := make(map[string]bool)
+	for _, c := range requiredCols {
+		requiredSet[c.ColumnName.Name] = true
+	}
+
+	dataParams := make([]string, 0)
+	for _, col := range columns {
+		if excludeAutoIncrement && col.AutoIncrement {
+			continue
+		}
+		jsonName := generator.ToSnakeCase(col.ColumnName.Name)
+		dataParams = append(dataParams, fmt.Sprintf("                    %q: %s", jsonName, buildParamDef(col, requiredSet[col.ColumnName.Name])))
+	}
+	for _, ep := range extraParams {
+		dataParams = append(dataParams, fmt.Sprintf("                    %q: {Type: %q}", ep[0], ep[1]))
+	}
+
+	return fmt.Sprintf(`        %q: siu.Meta(%s, siu.RouteDef{
+            Summary: %q,
+            Params: map[string]siu.ParamDef{
+                "timestamp": {Type: "integer", Description: "Request timestamp"},
+                "data": {Type: "object", Properties: map[string]siu.ParamDef{
+%s,
+                }},
+            },
+        }),`, route, handlerExpr, summary, strings.Join(dataParams, ",\n"))
+}
+
+func panicRecover() string {
+	return `    defer func() {
+        if err := recover(); err != nil {
+            c.JSON(200, t.FailWith(500, "system error"))
+        }
+    }()
+`
+}
+
+func c(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *%sRouter) Create%s(c *gin.Context) {
+	var funcLines string
+	if panicStyle {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Create%s(c *gin.Context) {
+%s    request := &t.RequestBean[*model.%s]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    s := request.Data
+    if s == nil {
+        siu.ERROR("__LINE__ bad request: empty data")
+        c.JSON(200, t.FailWith(400, "bad request"))
+        return
+    }
+    p.Service.Create%s(s)
+    c.JSON(200, t.Success())
+}
+`, routerName, modelName, panicRecover(), modelName, modelName)
+	} else {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Create%s(c *gin.Context) {
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     if err != nil {
@@ -118,13 +190,44 @@ func c(routerName string, statement *parser.Statement) (string, []string, string
     }
 }
 `, routerName, modelName, modelName, modelName, modelName)
-	return funcLines, nil, fmt.Sprintf(`        "POST /api/%s": p.Create%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
+	}
+	route := fmt.Sprintf("POST /api/%s", generator.ToStrikeCase(statement.TableName.Name))
+	handler := fmt.Sprintf("p.Create%s", modelName)
+	summary := fmt.Sprintf("Create %s", modelName)
+	// For create: non-null non-auto-increment columns are required
+	requiredCols := make([]*parser.ColumnDefinition, 0)
+	for _, col := range statement.Columns {
+		if col.AutoIncrement {
+			continue
+		}
+		if col.NotNull && col.DefaultValue == nil && !col.CurrentTimestamp {
+			requiredCols = append(requiredCols, col)
+		}
+	}
+	return funcLines, nil, buildMetaRouter(route, handler, summary, statement.Columns, requiredCols, true, nil)
 }
 
-func u(routerName string, statement *parser.Statement) (string, []string, string) {
+func u(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *%sRouter) Update%s(c *gin.Context) {
+	var funcLines string
+	if panicStyle {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Update%s(c *gin.Context) {
+%s    request := &t.RequestBean[*model.%s]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    s := request.Data
+    if s == nil {
+        siu.ERROR("__LINE__ bad request: empty data")
+        c.JSON(200, t.FailWith(400, "bad request"))
+        return
+    }
+    p.Service.Update%s(s)
+    c.JSON(200, t.Success())
+}
+`, routerName, modelName, panicRecover(), modelName, modelName)
+	} else {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Update%s(c *gin.Context) {
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     if err != nil {
@@ -147,15 +250,57 @@ func u(routerName string, statement *parser.Statement) (string, []string, string
     }
 }
 `, routerName, modelName, modelName, modelName, modelName)
-	return funcLines, nil, fmt.Sprintf(`        "PUT /api/%s": p.Update%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
+	}
+	route := fmt.Sprintf("PUT /api/%s", generator.ToStrikeCase(statement.TableName.Name))
+	handler := fmt.Sprintf("p.Update%s", modelName)
+	summary := fmt.Sprintf("Update %s", modelName)
+	// For update: primary key columns are required to identify the record
+	pkCols := make([]*parser.ColumnDefinition, 0)
+	for _, cols := range parser.GetPrimaryKeyPairs(statement) {
+		pkCols = append(pkCols, cols...)
+	}
+	return funcLines, nil, buildMetaRouter(route, handler, summary, statement.Columns, pkCols, false, nil)
 }
 
-func r(routerName string, statement *parser.Statement) (string, []string, string) {
+func r(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
 	funcLines := ""
 	routers := make([]string, 0)
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines += fmt.Sprintf(`func (p *%sRouter) QueryMany%s(c *gin.Context) {
+	if panicStyle {
+		funcLines += fmt.Sprintf(`func (p *%sRouter) QueryMany%s(c *gin.Context) {
+%s    type Pageable struct {
+        *model.%s
+        Page int `+"`form:\"page\" json:\"page\"`"+`
+        Size int `+"`form:\"size\" json:\"size\"`"+`
+    }
+    request := &t.RequestBean[*Pageable]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    data := request.Data
+    var s *model.%s
+    var page, size int
+    if data != nil {
+        s = data.%s
+        page = data.Page
+        size = data.Size
+    }
+    if page <= 0 {
+        page = 1
+    }
+    if size <= 0 {
+        size = 10
+    }
+    type PageableResult struct {
+        Count int `+"`json:\"count\"`"+`
+        List []*model.%s `+"`json:\"list\"`"+`
+    }
+    count, list := p.Service.QueryMany%s(s, page, size)
+    c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
+}
+`, routerName, modelName, panicRecover(), modelName, modelName, modelName, modelName, modelName)
+	} else {
+		funcLines += fmt.Sprintf(`func (p *%sRouter) QueryMany%s(c *gin.Context) {
     type Pageable struct {
         *model.%s
         Page int `+"`form:\"page\" json:\"page\"`"+`
@@ -195,7 +340,13 @@ func r(routerName string, statement *parser.Statement) (string, []string, string
     }
 }
 `, routerName, modelName, modelName, modelName, modelName, modelName, modelName, modelName)
-	routers = append(routers, fmt.Sprintf(`        "POST /api/%s/many": p.QueryMany%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+	}
+	queryManyRoute := fmt.Sprintf("POST /api/%s/many", generator.ToStrikeCase(statement.TableName.Name))
+	queryManyHandler := fmt.Sprintf("p.QueryMany%s", modelName)
+	queryManySummary := fmt.Sprintf("Query %s list", modelName)
+	extraParams := [][2]string{{"page", "integer"}, {"size", "integer"}}
+	routers = append(routers, buildMetaRouter(queryManyRoute, queryManyHandler, queryManySummary, statement.Columns, nil, false, extraParams))
+
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
 		keys := statement.PrimaryKeyPairs[0]
@@ -204,7 +355,23 @@ func r(routerName string, statement *parser.Statement) (string, []string, string
 		}
 	}
 	if len(primaryKeyNames) > 0 {
-		funcLines += fmt.Sprintf(`func (p *%sRouter) Query%s(c *gin.Context) {
+		if panicStyle {
+			funcLines += fmt.Sprintf(`func (p *%sRouter) Query%s(c *gin.Context) {
+%s    request := &t.RequestBean[*model.%s]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    s := request.Data
+    if s == nil {
+        siu.ERROR("__LINE__ bad request: empty data")
+        c.JSON(200, t.FailWith(400, "bad request"))
+        return
+    }
+    one := p.Service.Query%s(s)
+    c.JSON(200, t.SuccessWith(one))
+}
+`, routerName, modelName, panicRecover(), modelName, modelName)
+		} else {
+			funcLines += fmt.Sprintf(`func (p *%sRouter) Query%s(c *gin.Context) {
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     if err != nil {
@@ -227,15 +394,40 @@ func r(routerName string, statement *parser.Statement) (string, []string, string
     }
 }
 `, routerName, modelName, modelName, modelName, modelName)
-		routers = append(routers, fmt.Sprintf(`        "POST /api/%s/one": p.Query%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName))
+		}
+		queryOneRoute := fmt.Sprintf("POST /api/%s/one", generator.ToStrikeCase(statement.TableName.Name))
+		queryOneHandler := fmt.Sprintf("p.Query%s", modelName)
+		queryOneSummary := fmt.Sprintf("Query %s by primary key", modelName)
+		pkCols := make([]*parser.ColumnDefinition, 0)
+		for _, cols := range parser.GetPrimaryKeyPairs(statement) {
+			pkCols = append(pkCols, cols...)
+		}
+		routers = append(routers, buildMetaRouter(queryOneRoute, queryOneHandler, queryOneSummary, pkCols, pkCols, false, nil))
 	}
 	return funcLines, nil, strings.Join(routers, "\n")
 }
 
-func d(routerName string, statement *parser.Statement) (string, []string, string) {
+func d(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
 	modelName := generator.FirstUpperCamelCase(statement.TableName.Name)
 
-	funcLines := fmt.Sprintf(`func (p *%sRouter) Delete%s(c *gin.Context) {
+	var funcLines string
+	if panicStyle {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Delete%s(c *gin.Context) {
+%s    request := &t.RequestBean[*model.%s]{}
+    err := c.ShouldBind(request)
+    t.AssertErrorNil(err)
+    s := request.Data
+    if s == nil {
+        siu.ERROR("__LINE__ bad request: empty data")
+        c.JSON(200, t.FailWith(400, "bad request"))
+        return
+    }
+    p.Service.Delete%s(s)
+    c.JSON(200, t.Success())
+}
+`, routerName, modelName, panicRecover(), modelName, modelName)
+	} else {
+		funcLines = fmt.Sprintf(`func (p *%sRouter) Delete%s(c *gin.Context) {
     request := &t.RequestBean[*model.%s]{}
     err := c.ShouldBind(request)
     if err != nil {
@@ -258,5 +450,13 @@ func d(routerName string, statement *parser.Statement) (string, []string, string
     }
 }
 `, routerName, modelName, modelName, modelName, modelName)
-	return funcLines, nil, fmt.Sprintf(`        "DELETE /api/%s": p.Delete%s,`, generator.ToStrikeCase(statement.TableName.Name), modelName)
+	}
+	route := fmt.Sprintf("DELETE /api/%s", generator.ToStrikeCase(statement.TableName.Name))
+	handler := fmt.Sprintf("p.Delete%s", modelName)
+	summary := fmt.Sprintf("Delete %s", modelName)
+	pkCols := make([]*parser.ColumnDefinition, 0)
+	for _, cols := range parser.GetPrimaryKeyPairs(statement) {
+		pkCols = append(pkCols, cols...)
+	}
+	return funcLines, nil, buildMetaRouter(route, handler, summary, pkCols, pkCols, false, nil)
 }
