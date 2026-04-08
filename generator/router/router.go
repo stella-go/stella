@@ -76,66 +76,16 @@ func (p *%sRouter) Router() map[string]gin.HandlerFunc {
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s\n\n%s", pkg, bannerS, strings.Join(importsMap.Lines(), "\n"), fmt.Sprintf(typeLines, routerName, routerName, routerName, strings.Join(routers, "\n")), strings.Join(functions, "\n"))
 }
 
-// sqlTypeToParamType maps SQL types to JSON Schema types for siu.ParamDef.
-func sqlTypeToParamType(sqlType string) string {
-	switch sqlType {
-	case "TINYINT", "INT", "BIGINT":
-		return "integer"
-	case "FLOAT":
-		return "number"
-	case "CHAR", "VARCHAR", "TEXT", "DATE", "DATETIME", "TIMESTAMP":
-		return "string"
-	default:
-		return "string"
+// buildMetaRouter returns a router map line wrapping the handler with siu.Meta() using Request/Response.
+func buildMetaRouter(route string, handlerExpr string, summary string, modelName string, response string) string {
+	responseLine := ""
+	if response != "" {
+		responseLine = fmt.Sprintf("\n            Response: %s,", response)
 	}
-}
-
-// buildParamDef generates a siu.ParamDef literal string.
-func buildParamDef(col *parser.ColumnDefinition, required bool) string {
-	paramType := sqlTypeToParamType(col.Type)
-	desc := ""
-	if col.Comment != nil && col.Comment.Comment != "" {
-		desc = col.Comment.Comment
-	}
-	parts := []string{fmt.Sprintf("Type: %q", paramType)}
-	if desc != "" {
-		parts = append(parts, fmt.Sprintf("Description: %q", desc))
-	}
-	if required {
-		parts = append(parts, "Required: true")
-	}
-	return "{" + strings.Join(parts, ", ") + "}"
-}
-
-// buildMetaRouter returns a router map line wrapping the handler with siu.Meta().
-// Parameters reflect the RequestBean[T] structure: timestamp + data{...model fields}.
-func buildMetaRouter(route string, handlerExpr string, summary string, columns []*parser.ColumnDefinition, requiredCols []*parser.ColumnDefinition, excludeAutoIncrement bool, extraParams [][2]string) string {
-	requiredSet := make(map[string]bool)
-	for _, c := range requiredCols {
-		requiredSet[c.ColumnName.Name] = true
-	}
-
-	dataParams := make([]string, 0)
-	for _, col := range columns {
-		if excludeAutoIncrement && col.AutoIncrement {
-			continue
-		}
-		jsonName := generator.ToSnakeCase(col.ColumnName.Name)
-		dataParams = append(dataParams, fmt.Sprintf("                    %q: %s", jsonName, buildParamDef(col, requiredSet[col.ColumnName.Name])))
-	}
-	for _, ep := range extraParams {
-		dataParams = append(dataParams, fmt.Sprintf("                    %q: {Type: %q}", ep[0], ep[1]))
-	}
-
 	return fmt.Sprintf(`        %q: siu.Meta(%s, siu.RouteDef{
             Summary: %q,
-            Params: map[string]siu.ParamDef{
-                "timestamp": {Type: "integer", Description: "Request timestamp"},
-                "data": {Type: "object", Properties: map[string]siu.ParamDef{
-%s,
-                }},
-            },
-        }),`, route, handlerExpr, summary, strings.Join(dataParams, ",\n"))
+            Request: &t.RequestBean[*model.%s]{},`+responseLine+`
+        }),`, route, handlerExpr, summary, modelName)
 }
 
 func panicRecover() string {
@@ -194,17 +144,7 @@ func c(routerName string, statement *parser.Statement, panicStyle bool) (string,
 	route := fmt.Sprintf("POST /api/%s", generator.ToStrikeCase(statement.TableName.Name))
 	handler := fmt.Sprintf("p.Create%s", modelName)
 	summary := fmt.Sprintf("Create %s", modelName)
-	// For create: non-null non-auto-increment columns are required
-	requiredCols := make([]*parser.ColumnDefinition, 0)
-	for _, col := range statement.Columns {
-		if col.AutoIncrement {
-			continue
-		}
-		if col.NotNull && col.DefaultValue == nil && !col.CurrentTimestamp {
-			requiredCols = append(requiredCols, col)
-		}
-	}
-	return funcLines, nil, buildMetaRouter(route, handler, summary, statement.Columns, requiredCols, true, nil)
+	return funcLines, nil, buildMetaRouter(route, handler, summary, modelName, "&t.ResultBean[any]{}")
 }
 
 func u(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
@@ -254,12 +194,7 @@ func u(routerName string, statement *parser.Statement, panicStyle bool) (string,
 	route := fmt.Sprintf("PUT /api/%s", generator.ToStrikeCase(statement.TableName.Name))
 	handler := fmt.Sprintf("p.Update%s", modelName)
 	summary := fmt.Sprintf("Update %s", modelName)
-	// For update: primary key columns are required to identify the record
-	pkCols := make([]*parser.ColumnDefinition, 0)
-	for _, cols := range parser.GetPrimaryKeyPairs(statement) {
-		pkCols = append(pkCols, cols...)
-	}
-	return funcLines, nil, buildMetaRouter(route, handler, summary, statement.Columns, pkCols, false, nil)
+	return funcLines, nil, buildMetaRouter(route, handler, summary, modelName, "&t.ResultBean[any]{}")
 }
 
 func r(routerName string, statement *parser.Statement, panicStyle bool) (string, []string, string) {
@@ -291,12 +226,8 @@ func r(routerName string, statement *parser.Statement, panicStyle bool) (string,
     if size <= 0 {
         size = 10
     }
-    type PageableResult struct {
-        Count int `+"`json:\"count\"`"+`
-        List []*model.%s `+"`json:\"list\"`"+`
-    }
     count, list := p.Service.QueryMany%s(s, page, size)
-    c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
+    c.JSON(200, t.SuccessWith(&t.PageableResult[*model.%s]{Count: count, List: list}))
 }
 `, routerName, modelName, panicRecover(), modelName, modelName, modelName, modelName, modelName)
 	} else {
@@ -327,16 +258,12 @@ func r(routerName string, statement *parser.Statement, panicStyle bool) (string,
     if size <= 0 {
         size = 10
     }
-    type PageableResult struct {
-        Count int `+"`json:\"count\"`"+`
-        List []*model.%s `+"`json:\"list\"`"+`
-    }
     count, list, err := p.Service.QueryMany%s(s, page, size)
     if err != nil {
         siu.ERROR("__LINE__ query %s error:", err)
         c.JSON(200, t.FailWith(500, "system error"))
     } else {
-        c.JSON(200, t.SuccessWith(&PageableResult{Count: count, List: list}))
+        c.JSON(200, t.SuccessWith(&t.PageableResult[*model.%s]{Count: count, List: list}))
     }
 }
 `, routerName, modelName, modelName, modelName, modelName, modelName, modelName, modelName)
@@ -344,8 +271,7 @@ func r(routerName string, statement *parser.Statement, panicStyle bool) (string,
 	queryManyRoute := fmt.Sprintf("POST /api/%s/many", generator.ToStrikeCase(statement.TableName.Name))
 	queryManyHandler := fmt.Sprintf("p.QueryMany%s", modelName)
 	queryManySummary := fmt.Sprintf("Query %s list", modelName)
-	extraParams := [][2]string{{"page", "integer"}, {"size", "integer"}}
-	routers = append(routers, buildMetaRouter(queryManyRoute, queryManyHandler, queryManySummary, statement.Columns, nil, false, extraParams))
+	routers = append(routers, buildMetaRouter(queryManyRoute, queryManyHandler, queryManySummary, modelName, fmt.Sprintf("&t.PageableResult[*model.%s]{}", modelName)))
 
 	primaryKeyNames := make([]string, 0)
 	if len(statement.PrimaryKeyPairs) > 0 {
@@ -398,11 +324,7 @@ func r(routerName string, statement *parser.Statement, panicStyle bool) (string,
 		queryOneRoute := fmt.Sprintf("POST /api/%s/one", generator.ToStrikeCase(statement.TableName.Name))
 		queryOneHandler := fmt.Sprintf("p.Query%s", modelName)
 		queryOneSummary := fmt.Sprintf("Query %s by primary key", modelName)
-		pkCols := make([]*parser.ColumnDefinition, 0)
-		for _, cols := range parser.GetPrimaryKeyPairs(statement) {
-			pkCols = append(pkCols, cols...)
-		}
-		routers = append(routers, buildMetaRouter(queryOneRoute, queryOneHandler, queryOneSummary, pkCols, pkCols, false, nil))
+		routers = append(routers, buildMetaRouter(queryOneRoute, queryOneHandler, queryOneSummary, modelName, fmt.Sprintf("&t.ResultBean[*model.%s]{}", modelName)))
 	}
 	return funcLines, nil, strings.Join(routers, "\n")
 }
@@ -454,9 +376,5 @@ func d(routerName string, statement *parser.Statement, panicStyle bool) (string,
 	route := fmt.Sprintf("DELETE /api/%s", generator.ToStrikeCase(statement.TableName.Name))
 	handler := fmt.Sprintf("p.Delete%s", modelName)
 	summary := fmt.Sprintf("Delete %s", modelName)
-	pkCols := make([]*parser.ColumnDefinition, 0)
-	for _, cols := range parser.GetPrimaryKeyPairs(statement) {
-		pkCols = append(pkCols, cols...)
-	}
-	return funcLines, nil, buildMetaRouter(route, handler, summary, pkCols, pkCols, false, nil)
+	return funcLines, nil, buildMetaRouter(route, handler, summary, modelName, "&t.ResultBean[any]{}")
 }

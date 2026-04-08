@@ -114,7 +114,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 					gormTags = append(gormTags, "default:"+defaultValue)
 				}
 
-				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" gorm:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(gormTags, ";"))
+				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @meta:\"%s\" gorm:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), buildMetaTag(col), strings.Join(gormTags, ";"))
 				field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
 				fields = append(fields, field)
 			} else {
@@ -132,7 +132,7 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 					freeTags = append(freeTags, "round='s'")
 				}
 
-				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @free:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), strings.Join(freeTags, ","))
+				tag := fmt.Sprintf("form:\"%s\" json:\"%s,omitempty\" @meta:\"%s\" @free:\"%s\"", generator.ToSnakeCase(col.ColumnName.Name), generator.ToSnakeCase(col.ColumnName.Name), buildMetaTag(col), strings.Join(freeTags, ","))
 				field := &Field{generator.FirstUpperCamelCase(col.ColumnName.Name), typ, tag}
 				fields = append(fields, field)
 			}
@@ -144,6 +144,18 @@ func Generate(pkg string, statements []*parser.Statement, banner bool, gorm bool
 	bannerS := generator.Banner(banner)
 
 	return fmt.Sprintf("package %s\n%s\nimport (\n%s\n)\n\n%s", pkg, bannerS, strings.Join(importsMap.Lines(), "\n"), strings.Join(structs, "\n"))
+}
+
+// buildMetaTag generates the @meta tag value for a column.
+func buildMetaTag(col *parser.ColumnDefinition) string {
+	metaParts := make([]string, 0)
+	if col.Comment != nil && col.Comment.Comment != "" {
+		metaParts = append(metaParts, "desc="+col.Comment.Comment)
+	}
+	if col.NotNull && col.DefaultValue == nil && !col.AutoIncrement && !col.CurrentTimestamp {
+		metaParts = append(metaParts, "required")
+	}
+	return strings.Join(metaParts, ",")
 }
 
 func isPrimaryKey(statement *parser.Statement, col *parser.ColumnDefinition) bool {
